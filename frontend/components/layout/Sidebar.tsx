@@ -90,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
   };
 
   return (
-    <aside className="hidden md:flex w-64 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] min-h-[calc(100vh-4rem)] p-4 flex-col justify-between print:hidden">
+    <aside className="hidden md:flex w-64 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] h-full p-4 flex-col justify-between overflow-hidden select-none print:hidden">
       <div className="space-y-6">
         <div>
           <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--ink-muted)] px-3">

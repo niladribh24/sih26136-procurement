@@ -89,7 +89,7 @@ export default function GovernmentProblemsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="p-12 text-center bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-3">
-          <FileText className="w-10 h-10 text-[var(--ink-muted)] mx-auto" />
+          <img src="/empty-dossier.svg" alt="No Problem Statements" className="w-24 h-24 mx-auto mb-2 opacity-85" />
           <h3 className="text-base font-bold text-[var(--ink)] font-editorial">
             No Problem Statements Found
           </h3>

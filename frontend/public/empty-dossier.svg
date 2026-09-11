@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160" width="200" height="160">
+  <!-- Shadow / Base -->
+  <ellipse cx="100" cy="142" rx="72" ry="7" fill="#BEBBB0" opacity="0.4" />
+
+  <!-- Back Folder Flap -->
+  <path d="M 45,35 L 85,35 L 95,43 L 155,43 C 158,43 160,45 160,48 L 160,130 C 160,133 158,135 155,135 L 45,135 C 42,135 40,133 40,130 L 40,40 C 40,37 42,35 45,35 Z" 
+        fill="#EBE8DF" stroke="#BEBBB0" stroke-width="1.5" />
+
+  <!-- Parchment Paper Pages Protruding -->
+  <rect x="52" y="24" width="96" height="105" rx="3" fill="#FAF8F3" stroke="#D9D6CB" stroke-width="1.2" transform="rotate(-3 100 80)" />
+  <!-- Text lines on page 1 -->
+  <g transform="rotate(-3 100 80)" stroke="#BEBBB0" stroke-width="1.2" stroke-linecap="round" opacity="0.6">
+    <line x1="62" y1="36" x2="105" y2="36" />
+    <line x1="62" y1="44" x2="136" y2="44" />
+    <line x1="62" y1="52" x2="128" y2="52" />
+    <line x1="62" y1="60" x2="118" y2="60" />
+  </g>
+
+  <rect x="54" y="26" width="96" height="105" rx="3" fill="#FFFFFF" stroke="#D9D6CB" stroke-width="1.2" />
+  <!-- Text lines on page 2 -->
+  <g stroke="#D9D6CB" stroke-width="1.5" stroke-linecap="round">
+    <line x1="66" y1="40" x2="110" y2="40" stroke="#1B365D" stroke-width="2" />
+    <line x1="66" y1="48" x2="138" y2="48" />
+    <line x1="66" y1="56" x2="132" y2="56" />
+    <line x1="66" y1="64" x2="122" y2="64" />
+    <line x1="66" y1="72" x2="136" y2="72" />
+  </g>
+
+  <!-- Front Folder Body -->
+  <path d="M 40,60 L 90,60 L 100,68 L 160,68 C 163,68 165,70 165,73 L 165,133 C 165,136 163,138 160,138 L 40,138 C 37,138 35,136 35,133 L 35,65 C 35,62 37,60 40,60 Z" 
+        fill="#FAF8F3" stroke="#BEBBB0" stroke-width="1.5" />
+
+  <!-- Folder Pocket Detail -->
+  <path d="M 35,90 L 165,90" stroke="#D9D6CB" stroke-width="1" />
+
+  <!-- Brass Fastener Clip -->
+  <rect x="94" y="20" width="12" height="16" rx="2" fill="#D48B47" stroke="#A25722" stroke-width="1" />
+  <circle cx="100" cy="28" r="2.5" fill="#FAF8F3" />
+
+  <!-- Red / Ochre Civic Wax Stamp on Folder -->
+  <g transform="translate(132, 110)">
+    <circle cx="0" cy="0" r="16" fill="#F9EFE6" stroke="#A25722" stroke-width="1.5" stroke-dasharray="2 1" />
+    <circle cx="0" cy="0" r="12" fill="none" stroke="#A25722" stroke-width="1" />
+    <text x="0" y="-1" font-family="'IBM Plex Mono', monospace" font-size="4.5" font-weight="700" fill="#A25722" text-anchor="middle">
+      SAMARTH
+    </text>
+    <text x="0" y="5" font-family="'IBM Plex Mono', monospace" font-size="3.5" font-weight="600" fill="#1B365D" text-anchor="middle">
+      RECORD
+    </text>
+  </g>
+
+  <!-- GFR Filing Label Tag -->
+  <rect x="44" y="104" width="62" height="18" rx="2" fill="#FFFFFF" stroke="#BEBBB0" stroke-width="1" />
+  <text x="49" y="113" font-family="'IBM Plex Mono', monospace" font-size="5" font-weight="700" fill="#1B365D">
+    DOSSIER #SIH26136
+  </text>
+  <text x="49" y="119" font-family="'IBM Plex Sans', sans-serif" font-size="4" fill="#6E726A">
+    Government Procurement Cell
+  </text>
+</svg>

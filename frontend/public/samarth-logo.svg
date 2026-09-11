@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" width="360" height="64">
+  <defs>
+    <radialGradient id="logoEmblemBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#244574" />
+      <stop offset="100%" stop-color="#1B365D" />
+    </radialGradient>
+  </defs>
+
+  <!-- Left: Emblem Icon (48x48 at x=8, y=8) -->
+  <g transform="translate(8, 8)">
+    <circle cx="24" cy="24" r="23" fill="url(#logoEmblemBg)" stroke="#A25722" stroke-width="1.6" />
+    <circle cx="24" cy="24" r="19" fill="none" stroke="#FAF8F3" stroke-width="0.8" stroke-dasharray="1.5 1" opacity="0.6" />
+    
+    <!-- 8 Chakra Spokes -->
+    <g stroke="#A25722" stroke-width="0.8" opacity="0.8">
+      <line x1="24" y1="9" x2="24" y2="39" />
+      <line x1="9" y1="24" x2="39" y2="24" />
+      <line x1="13.4" y1="13.4" x2="34.6" y2="34.6" />
+      <line x1="13.4" y1="34.6" x2="34.6" y2="13.4" />
+    </g>
+
+    <!-- Central Shield -->
+    <path d="M 24,14 L 32,19 L 30.5,30 C 30.5,35 27,37.5 24,39 C 21,37.5 17.5,35 17.5,30 L 16,19 Z" 
+          fill="#1B365D" stroke="#FAF8F3" stroke-width="1.2" stroke-linejoin="round" />
+    
+    <!-- Chevron -->
+    <polygon points="24,17 30,23 24,21 18,23" fill="#A25722" />
+    <polygon points="24,23 28.5,28 24,26.5 19.5,28" fill="#265C42" />
+    <circle cx="24" cy="31" r="1.5" fill="#FAF8F3" />
+  </g>
+
+  <!-- Brand Typography -->
+  <g transform="translate(68, 12)">
+    <!-- Wordmark -->
+    <text x="0" y="22" font-family="'Newsreader', Georgia, serif" font-size="25" font-weight="700" fill="#1B365D" letter-spacing="1.5">
+      SAMARTH
+    </text>
+    
+    <!-- Code Badge -->
+    <rect x="136" y="7" width="58" height="15" rx="3" fill="#F9EFE6" stroke="#A25722" stroke-width="0.75" />
+    <text x="165" y="18" font-family="'IBM Plex Mono', monospace" font-size="9" font-weight="600" fill="#A25722" text-anchor="middle">
+      SIH26136
+    </text>
+
+    <!-- Subtitle -->
+    <text x="0" y="38" font-family="'IBM Plex Sans', sans-serif" font-size="9.5" font-weight="500" fill="#474B46" letter-spacing="0.2">
+      Public Procurement &amp; Startup Innovation Engine
+    </text>
+
+    <!-- Legal Framework Meta -->
+    <text x="0" y="49" font-family="'IBM Plex Mono', monospace" font-size="7.5" font-weight="500" fill="#6E726A" letter-spacing="0.4">
+      GFR RULE 149 &amp; 194 · DPIIT STARTUP PROCUREMENT
+    </text>
+  </g>
+</svg>

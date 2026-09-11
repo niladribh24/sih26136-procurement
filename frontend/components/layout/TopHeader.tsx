@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { DEMO_PERSONAS, getSession, setSession, clearSession, subscribeSession } from "@/lib/auth";
 import { UserSession } from "@/lib/types";
+import { SamarthEmblem } from "@/components/ui/SamarthEmblem";
 
 const getServerSnapshot = () => null;
 
@@ -63,14 +64,12 @@ export const TopHeader: React.FC = () => {
   };
 
   return (
-    <header className="w-full bg-[var(--surface-raised)] border-b border-[var(--line)] sticky top-0 z-40 print:hidden">
+    <header className="w-full bg-[var(--surface-raised)] border-b border-[var(--line)] shrink-0 sticky top-0 z-40 print:hidden">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Left: Brand / Emblem */}
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-[6px] bg-[var(--accent)] flex items-center justify-center text-white shadow-xs">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+            <SamarthEmblem size={34} className="group-hover:scale-105 transition-transform" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold tracking-wider text-base text-[var(--accent)] font-editorial">

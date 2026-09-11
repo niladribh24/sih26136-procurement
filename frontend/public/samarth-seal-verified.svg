@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <defs>
+    <path id="sealArcTop" d="M 22,80 A 58,58 0 0,1 138,80" fill="none" />
+    <path id="sealArcBottom" d="M 138,80 A 58,58 0 0,1 22,80" fill="none" />
+  </defs>
+
+  <!-- Outer Serrated Stamp Ring -->
+  <circle cx="80" cy="80" r="76" fill="#FAF8F3" stroke="#1B365D" stroke-width="2.5" stroke-dasharray="3 1.5" />
+  <circle cx="80" cy="80" r="70" fill="none" stroke="#A25722" stroke-width="1.2" />
+  <circle cx="80" cy="80" r="66" fill="none" stroke="#1B365D" stroke-width="0.8" />
+
+  <!-- Circular Text -->
+  <text font-family="'IBM Plex Sans', sans-serif" font-size="8.5" font-weight="700" fill="#1B365D" letter-spacing="1.6">
+    <textPath href="#sealArcTop" startOffset="50%" text-anchor="middle">
+      GOVERNMENT OF INDIA
+    </textPath>
+  </text>
+  <text font-family="'IBM Plex Sans', sans-serif" font-size="7.5" font-weight="600" fill="#265C42" letter-spacing="1.4">
+    <textPath href="#sealArcBottom" startOffset="50%" text-anchor="middle">
+      ★ PUBLIC PROCUREMENT SANCTION ★
+    </textPath>
+  </text>
+
+  <!-- Inner Concentric Enclosure -->
+  <circle cx="80" cy="80" r="48" fill="#F4F2EB" stroke="#1B365D" stroke-width="1.5" />
+  <circle cx="80" cy="80" r="44" fill="none" stroke="#A25722" stroke-width="0.75" stroke-dasharray="2 1" />
+
+  <!-- Verification Check & Star Shield -->
+  <g transform="translate(80, 58)">
+    <polygon points="0,-14 4,-4 14,-4 6,3 9,13 0,7 -9,13 -6,3 -14,-4 -4,-4" fill="#A25722" opacity="0.3" />
+  </g>
+
+  <!-- Central Statutory Authority Plaque -->
+  <rect x="42" y="60" width="76" height="22" rx="3" fill="#1B365D" stroke="#A25722" stroke-width="1" />
+  <text x="80" y="71" font-family="'IBM Plex Mono', monospace" font-size="7" font-weight="700" fill="#FAF8F3" text-anchor="middle" letter-spacing="0.8">
+    GFR RULE 194
+  </text>
+  <text x="80" y="78.5" font-family="'IBM Plex Sans', sans-serif" font-size="5.5" font-weight="600" fill="#F9EFE6" text-anchor="middle" letter-spacing="0.4">
+    SINGLE SOURCE EXEMPTION
+  </text>
+
+  <!-- Status Ribbon Below Plaque -->
+  <rect x="48" y="87" width="64" height="15" rx="2" fill="#E1EFE7" stroke="#265C42" stroke-width="0.9" />
+  <text x="80" y="97.5" font-family="'IBM Plex Mono', monospace" font-size="6.5" font-weight="700" fill="#265C42" text-anchor="middle" letter-spacing="0.6">
+    ✓ STATUTORY SANCTION
+  </text>
+
+  <!-- Subtext -->
+  <text x="80" y="113" font-family="'IBM Plex Mono', monospace" font-size="5" font-weight="600" fill="#6E726A" text-anchor="middle">
+    DPIIT RECOGNIZED · TAMPER PROOF
+  </text>
+</svg>

@@ -43,9 +43,7 @@ export default function StartupPilotsPage() {
         </div>
       ) : pilots.length === 0 ? (
         <div className="p-12 text-center bg-[var(--surface)] border border-[var(--line)] rounded-[8px] space-y-3">
-          <div className="w-10 h-10 rounded-full bg-[var(--surface-raised)] border border-[var(--line)] flex items-center justify-center mx-auto text-[var(--ink-muted)]">
-            <Rocket className="w-5 h-5" />
-          </div>
+          <img src="/empty-dossier.svg" alt="No Active Pilot Trials" className="w-24 h-24 mx-auto mb-2 opacity-85" />
           <div className="text-sm font-bold text-[var(--ink)]">No Active Pilot Trials Yet</div>
           <p className="text-xs text-[var(--ink-muted)] max-w-md mx-auto">
             Your shortlisted proposals will appear here once approved by department evaluation committees for pilot deployment.

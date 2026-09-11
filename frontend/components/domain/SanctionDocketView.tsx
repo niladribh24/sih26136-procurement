@@ -53,9 +53,12 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
       <div className="p-8 bg-white border border-[var(--line-strong)] rounded-[4px] shadow-sm space-y-8 print:border-none print:shadow-none print:p-0 font-editorial">
         {/* Header Letterhead */}
         <div className="text-center border-b-2 border-[var(--ink)] pb-6 space-y-2">
-          <div className="w-12 h-12 rounded-full border border-[var(--ink)] mx-auto flex items-center justify-center font-mono-data text-xs font-bold text-[var(--accent)]">
-            GOI
-          </div>
+          {/* Official Verification Seal */}
+          <img
+            src="/samarth-seal-verified.svg"
+            alt="Government of India Public Procurement Verification Seal"
+            className="w-20 h-20 mx-auto mb-2"
+          />
           <div className="text-xs font-mono-data tracking-widest uppercase text-[var(--ink-muted)]">
             Government of India · Public Procurement Authority
           </div>

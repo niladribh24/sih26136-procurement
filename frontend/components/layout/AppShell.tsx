@@ -18,11 +18,13 @@ export const AppShell: React.FC<AppShellProps> = ({ role, children }) => {
   const activeRole = session?.role || role || "govt_officer";
 
   return (
-    <div className="min-h-screen bg-[var(--canvas)] flex flex-col">
+    <div className="h-screen bg-[var(--canvas)] flex flex-col overflow-hidden">
       <TopHeader />
-      <div className="flex-1 flex max-w-[1440px] w-full mx-auto">
+      <div className="flex-1 flex max-w-[1440px] w-full mx-auto overflow-hidden">
         <Sidebar role={activeRole} />
-        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-x-hidden print:p-0 print:max-w-none">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto overflow-x-hidden print:p-0 print:max-w-none print:overflow-visible">
+          {children}
+        </main>
       </div>
     </div>
   );

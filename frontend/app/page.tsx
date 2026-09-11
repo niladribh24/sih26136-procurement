@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { DEMO_PERSONAS, setSession } from "@/lib/auth";
 import { Button } from "@/components/ui/Button";
+import { SamarthEmblem } from "@/components/ui/SamarthEmblem";
 
 export default function HomePage() {
   const router = useRouter();
@@ -35,9 +36,7 @@ export default function HomePage() {
       <header className="w-full bg-[var(--surface-raised)] border-b border-[var(--line)] py-3 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-[6px] bg-[var(--accent)] flex items-center justify-center text-white">
-              <Shield className="w-4 h-4" />
-            </div>
+            <SamarthEmblem size={32} />
             <div>
               <span className="font-bold tracking-wider text-base text-[var(--accent)] font-editorial">
                 SAMARTH
@@ -63,7 +62,9 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="max-w-4xl mx-auto px-6 pt-16 pb-12 text-center">
+      <section className="max-w-4xl mx-auto px-6 pt-12 pb-12 text-center">
+        <SamarthEmblem size={64} className="mx-auto mb-5 shadow-xs hover:scale-105 transition-transform" />
+
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface-raised)] border border-[var(--line)] text-xs text-[var(--ink-secondary)] mb-6 shadow-2xs">
           <Sparkles className="w-3.5 h-3.5 text-[var(--highlight)]" />
           <span>Smart India Hackathon 2026 · Problem SIH26136</span>
@@ -275,6 +276,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-[var(--line)] py-6 text-center text-xs text-[var(--ink-muted)] bg-[var(--surface)]">
+        <SamarthEmblem size={24} className="mx-auto mb-2 opacity-75" />
         <p>
           SAMARTH Platform · SIH 2026 Problem SIH26136 · Compliant with General Financial Rules (GFR Rule 194) & DPIIT Startup Framework
         </p>
