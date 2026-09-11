@@ -41,7 +41,7 @@ export default function GovernmentProblemsPage() {
       <PageHeader
         code="STAGE-1-IDENTIFY"
         title="Department Operational Challenges"
-        subtitle="Manage published operational requirements, review incoming startup proposals, and inspect AI-ranked shortlists."
+        subtitle="Manage published operational requirements, review incoming startup proposals, and inspect evaluated candidate shortlists."
         actions={
           <Link href="/gov/problems/new">
             <Button variant="primary" size="md">

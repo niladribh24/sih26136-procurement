@@ -36,7 +36,7 @@ export default function StartupProblemBrowserPage() {
       <PageHeader
         code="STAGE-1-IDENTIFY"
         title="Government Operational Challenges"
-        subtitle="Explore open problem statements published by sovereign ministries, departments, and defence cells."
+        subtitle="Explore open problem statements published by ministries, departments, and public sector cells."
       />
 
       {/* Filter and Search Bar */}

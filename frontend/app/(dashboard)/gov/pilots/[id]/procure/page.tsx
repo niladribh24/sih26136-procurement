@@ -28,7 +28,7 @@ export default function GovernmentProcurePage() {
   if (loading) {
     return (
       <div className="p-12 text-center text-xs font-mono-data text-[var(--ink-muted)]">
-        Generating sovereign procurement sanction dossier...
+        Preparing official procurement sanction memorandum...
       </div>
     );
   }
@@ -99,8 +99,8 @@ export default function GovernmentProcurePage() {
         <PageHeader
           code="STAGE-3-PROCURE"
           title="Procurement Sanction Order & GeM Dossier"
-          subtitle="Automated sovereign procurement conversion with statutory GFR 149/194 and DPIIT startup exemption certificates."
-          badge={<Badge variant="positive">HERO SCREEN 3: SANCTION DOCKET</Badge>}
+          subtitle="Direct public procurement authorization under statutory GFR 149 & 194 innovation exemptions."
+          badge={<Badge variant="positive">Stage 3: Direct Sanction</Badge>}
         />
       </div>
 

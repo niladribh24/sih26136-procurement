@@ -46,13 +46,11 @@ function setStored<T>(key: string, data: T): void {
 export interface ApiService {
   getProblems: () => Promise<Problem[]>;
   getProblem: (id: string) => Promise<Problem | null>;
-  getProblemById: (id: string) => Promise<Problem | null>;
   createProblem: (newProblem: Omit<Problem, "id" | "code" | "createdAt" | "submissionCount" | "status">) => Promise<Problem>;
   getSolutions: (problemId?: string) => Promise<Solution[]>;
   getSolution: (id: string) => Promise<Solution | null>;
   getProposalsByStartup: (startupId: string) => Promise<Solution[]>;
   submitSolution: (newSolution: Omit<Solution, "id" | "submittedAt" | "matchScore" | "matchExplanation" | "matchedKeywords" | "status">) => Promise<Solution>;
-  submitProposal: (proposal: Omit<Solution, "id" | "submittedAt" | "matchScore" | "matchExplanation" | "matchedKeywords" | "status">) => Promise<Solution>;
   updateSolutionStatus: (solutionId: string, status: Solution["status"]) => Promise<Solution | null>;
   updateSolutionRubric: (
     solutionId: string,
@@ -65,9 +63,7 @@ export interface ApiService {
   ) => Promise<Solution | null>;
   getPilots: () => Promise<Pilot[]>;
   getPilot: (id: string) => Promise<Pilot | null>;
-  getPilotById: (id: string) => Promise<Pilot | null>;
   createPilot: (pilotData: Omit<Pilot, "id" | "code" | "startDate" | "status">) => Promise<Pilot>;
-  createPilotFromProposal: (pilotData: Omit<Pilot, "id" | "code" | "startDate" | "status">) => Promise<Pilot>;
   updatePilotStatus: (pilotId: string, status: Pilot["status"]) => Promise<Pilot | null>;
   verifyMilestone: (
     pilotId: string,
@@ -88,7 +84,6 @@ export interface ApiService {
   getScaleSolutions: () => Promise<ScaleSolution[]>;
   getReplications: () => Promise<ReplicationRequest[]>;
   createReplicationRequest: (req: Omit<ReplicationRequest, "id" | "requestedAt" | "status">) => Promise<ReplicationRequest>;
-  submitReplicationRequest: (req: Omit<ReplicationRequest, "id" | "requestedAt" | "status">) => Promise<ReplicationRequest>;
   logAuditEntry: (entry: {
     pilotId: string;
     action: string;
@@ -107,10 +102,6 @@ export const api: ApiService = {
   getProblem: async (id: string): Promise<Problem | null> => {
     const problems = await api.getProblems();
     return problems.find((p) => p.id === id || p.code === id) || null;
-  },
-
-  getProblemById: async (id: string): Promise<Problem | null> => {
-    return api.getProblem(id);
   },
 
   createProblem: async (newProblem: Omit<Problem, "id" | "code" | "createdAt" | "submissionCount" | "status">): Promise<Problem> => {
@@ -182,10 +173,6 @@ export const api: ApiService = {
     return created;
   },
 
-  submitProposal: async (proposal: Parameters<typeof api.submitSolution>[0]): Promise<Solution> => {
-    return api.submitSolution(proposal);
-  },
-
   updateSolutionStatus: async (solutionId: string, status: Solution["status"]): Promise<Solution | null> => {
     const solutions = await api.getSolutions();
     const sol = solutions.find((s: Solution) => s.id === solutionId);
@@ -229,10 +216,6 @@ export const api: ApiService = {
     return pilots.find((p: Pilot) => p.id === id || p.code === id) || null;
   },
 
-  getPilotById: async (id: string): Promise<Pilot | null> => {
-    return api.getPilot(id);
-  },
-
   createPilot: async (pilotData: Omit<Pilot, "id" | "code" | "startDate" | "status">): Promise<Pilot> => {
     const pilots = await api.getPilots();
     const pilotId = `plt-${Date.now()}`;
@@ -262,10 +245,6 @@ export const api: ApiService = {
     }
 
     return created;
-  },
-
-  createPilotFromProposal: async (pilotData: Omit<Pilot, "id" | "code" | "startDate" | "status">): Promise<Pilot> => {
-    return api.createPilot(pilotData);
   },
 
   updatePilotStatus: async (pilotId: string, status: Pilot["status"]): Promise<Pilot | null> => {
@@ -405,12 +384,6 @@ export const api: ApiService = {
     const updated = [created, ...reps];
     setStored(STORAGE_KEYS.REPLICATIONS, updated);
     return created;
-  },
-
-  submitReplicationRequest: async (
-    req: Omit<ReplicationRequest, "id" | "requestedAt" | "status">
-  ): Promise<ReplicationRequest> => {
-    return api.createReplicationRequest(req);
   },
 
   logAuditEntry: async (entry: {

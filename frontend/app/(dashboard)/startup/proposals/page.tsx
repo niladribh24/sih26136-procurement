@@ -56,7 +56,7 @@ export default function StartupProposalsPage() {
       <PageHeader
         code="MY-PROPOSALS"
         title="Submitted Technical Proposals"
-        subtitle="Track evaluation status, AI semantic match ratings, and pilot shortlisting decisions."
+        subtitle="Track evaluation status, technical fit scores, and pilot shortlisting decisions."
       />
 
       {loading ? (

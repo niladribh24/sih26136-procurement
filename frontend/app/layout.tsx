@@ -23,7 +23,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "SAMARTH — Public Procurement & Startup Innovation Platform",
-  description: "Bridging Startup Innovation with Sovereign Procurement (SIH26136)",
+  description: "Bridging Startup Innovation with Public Procurement (SIH26136)",
 };
 
 export default function RootLayout({

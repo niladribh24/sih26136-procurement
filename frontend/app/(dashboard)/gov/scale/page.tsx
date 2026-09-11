@@ -61,14 +61,14 @@ export default function GovernmentScaleRepositoryPage() {
       <PageHeader
         code="STAGE-4-SCALE"
         title="Inter-Departmental Innovation Repository"
-        subtitle="Discover and directly replicate field-proven startup innovations validated by other sovereign ministries under GFR Rule 149 & Rule 194."
-        badge={<Badge variant="highlight">HERO SCREEN 4: SCALE REPOSITORY</Badge>}
+        subtitle="Discover and directly replicate field-proven innovations validated across central and state ministries under GFR Rule 149 & Rule 194."
+        badge={<Badge variant="highlight">Stage 4: National Scale</Badge>}
       />
 
       {successToast && (
         <div className="p-4 bg-[var(--positive-soft)] border border-[var(--positive)]/40 rounded-[8px] flex items-center gap-3 text-xs text-[var(--positive)] font-mono-data">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>Inter-departmental adoption requisition recorded in sovereign scale register!</span>
+          <span>Inter-departmental adoption requisition recorded in national scale register!</span>
         </div>
       )}
 
@@ -177,7 +177,7 @@ export default function GovernmentScaleRepositoryPage() {
               <div className="p-3 bg-[var(--surface)] border border-[var(--line)] rounded-[6px] text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <span className="text-[11px] font-mono-data text-[var(--ink-muted)] block">
-                    Originating Sovereign Validation:
+                    Originating Department Validation:
                   </span>
                   <strong className="text-[var(--ink)]">{item.originatingDepartment}</strong>
                 </div>

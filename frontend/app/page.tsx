@@ -66,11 +66,11 @@ export default function HomePage() {
       <section className="max-w-4xl mx-auto px-6 pt-16 pb-12 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface-raised)] border border-[var(--line)] text-xs text-[var(--ink-secondary)] mb-6 shadow-2xs">
           <Sparkles className="w-3.5 h-3.5 text-[var(--highlight)]" />
-          <span>Smart India Hackathon 2026 Sovereign Prototype · Problem SIH26136</span>
+          <span>Smart India Hackathon 2026 · Problem SIH26136</span>
         </div>
 
         <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-[var(--ink)] font-editorial leading-tight sm:leading-snug mb-6">
-          Bridging Startup Innovation with Sovereign Public Procurement
+          Bridging Startup Innovation with Public Procurement
         </h1>
 
         <p className="text-base sm:text-lg text-[var(--ink-secondary)] max-w-2xl mx-auto leading-relaxed mb-8">
@@ -87,7 +87,7 @@ export default function HomePage() {
             </span>
             <h2 className="text-sm font-bold text-[var(--ink)] mt-0.5">IDENTIFY</h2>
             <p className="text-[11px] text-[var(--ink-muted)] mt-1">
-              Govt challenges published with target KPIs & AI semantic matchmaking.
+              Govt challenges published with target KPIs & automated fit matching.
             </p>
           </div>
 
@@ -202,7 +202,7 @@ export default function HomePage() {
                 <div className="text-[11px] text-[var(--ink-muted)] pt-2 space-y-1">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[var(--positive)]" />
-                    <span>AI Capability Tag Extraction</span>
+                    <span>Technical Capability Tag Extraction</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[var(--positive)]" />
@@ -278,8 +278,8 @@ export default function HomePage() {
         <p>
           SAMARTH Platform · SIH 2026 Problem SIH26136 · Compliant with General Financial Rules (GFR Rule 194) & DPIIT Startup Framework
         </p>
-        <p className="mt-1 text-[11px] font-mono-data">
-          Strict Anti-AI-Slop Civic Editorial Interface · Sovereign Identity Governance
+        <p className="mt-1 text-[11px] font-mono-data text-[var(--ink-muted)]">
+          Civic Editorial Interface · Designed for Central & State Ministries, Nodal Evaluators, and Registered DPIIT Startups
         </p>
       </footer>
     </div>

@@ -40,8 +40,8 @@ export default function StartupScaleShowcasePage() {
     <div className="space-y-6 max-w-5xl">
       <PageHeader
         code="STAGE-4-SCALE"
-        title="Proven Sovereign Innovations Showcase"
-        subtitle="Explore startup solutions that have completed pilots, achieved sovereign validation, and scaled across ministries."
+        title="National Validated Innovations Directory"
+        subtitle="Explore startup solutions that have completed pilots, achieved public validation, and scaled across ministries."
       />
 
       <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] flex items-center gap-3">
@@ -156,7 +156,7 @@ export default function StartupScaleShowcasePage() {
 
         {filteredItems.length === 0 && (
           <div className="p-12 text-center bg-[var(--surface)] border border-[var(--line)] rounded-[8px] text-xs text-[var(--ink-muted)]">
-            No sovereign-validated scale solutions match your search or filter parameters.
+            No validated scale solutions match your search or filter parameters.
           </div>
         )}
       </div>

@@ -57,7 +57,7 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
             GOI
           </div>
           <div className="text-xs font-mono-data tracking-widest uppercase text-[var(--ink-muted)]">
-            Government of India · Sovereign Procurement Authority
+            Government of India · Public Procurement Authority
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[var(--ink)] uppercase">
             Official Innovation Sanction Memorandum

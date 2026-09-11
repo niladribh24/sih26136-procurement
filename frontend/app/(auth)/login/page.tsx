@@ -87,7 +87,7 @@ function LoginForm() {
           Sign in to SAMARTH
         </h2>
         <p className="text-xs text-[var(--ink-muted)] mt-1">
-          Access your sovereign procurement workspace
+          Access your public procurement portal and active workflows
         </p>
       </div>
 

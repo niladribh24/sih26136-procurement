@@ -162,7 +162,7 @@ export default function StartupProblemSubmissionPage() {
               Proposal Successfully Submitted! (ID: {submittedId})
             </div>
             <div className="text-[11px] text-[var(--positive)]/80">
-              Triggered background NLP summarization and semantic match scoring. Redirecting to proposal tracker...
+              Technical proposal registered for department review. Redirecting to your proposal tracker...
             </div>
           </div>
         </div>
@@ -224,7 +224,7 @@ export default function StartupProblemSubmissionPage() {
               Submit Technical Solution Proposal
             </h2>
             <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-              Submit your architectural abstract and technical proposal PDF for AI match ranking.
+              Submit your architectural abstract and technical proposal PDF for technical evaluation.
             </p>
           </div>
 
@@ -276,7 +276,7 @@ export default function StartupProblemSubmissionPage() {
                 className="w-full px-3 py-2 text-xs bg-[var(--surface-raised)] border border-[var(--line)] rounded-[6px] text-[var(--ink)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-[var(--accent)]"
               />
               <span className="text-[10px] text-[var(--ink-muted)]">
-                The NLP microservice distills this into a 2–4 sentence summary and calculates cosine similarity.
+                Summarize your core technical methodology, hardware/software stack, and target deployment approach.
               </span>
             </div>
 

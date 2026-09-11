@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Dialog } from "@/components/ui/Dialog";
+import { MilestoneStepper } from "@/components/domain/MilestoneStepper";
 
 export default function StartupPilotDetailPage() {
   const params = useParams();
@@ -90,45 +91,12 @@ export default function StartupPilotDetailPage() {
         badge={<Badge variant="positive">{pilot.status.toUpperCase()}</Badge>}
       />
 
-      {/* State Machine Progression Banner */}
-      <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-2">
-        <span className="text-[11px] font-mono-data text-[var(--ink-muted)] uppercase tracking-wider">
-          State Machine Progression
-        </span>
-        <div className="flex flex-wrap items-center gap-2 text-xs font-mono-data">
-          {[
-            "Proposed",
-            "Under review",
-            "Approved",
-            "Active",
-            "Completed",
-            "Recommended for procurement",
-            "Procured",
-          ].map((st, idx, arr) => {
-            const currentIdx = arr.indexOf(pilot.status);
-            const isCurrent = pilot.status === st;
-            const isPassed = currentIdx > idx || pilot.status === "Procured";
-
-            return (
-              <React.Fragment key={st}>
-                <span
-                  className={`px-2.5 py-1 rounded-[4px] border ${
-                    isCurrent
-                      ? "bg-[var(--accent)] text-white border-[var(--accent)] font-bold shadow-xs"
-                      : isPassed
-                      ? "bg-[var(--positive-soft)] text-[var(--positive)] border-[var(--positive)]/30 font-medium"
-                      : "bg-[var(--surface-subtle)] text-[var(--ink-muted)] border-[var(--line)]"
-                  }`}
-                >
-                  {isPassed && "✓ "}
-                  {st}
-                </span>
-                {idx < arr.length - 1 && <span className="text-[var(--ink-faint)]">──▶</span>}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
+      {/* Milestone Lifecycle Stepper */}
+      <MilestoneStepper
+        currentStatus={pilot.status}
+        leadOfficer={pilot.leadOfficerName}
+        independentValidator={pilot.independentValidatorName}
+      />
 
       {/* Milestones List */}
       <div className="space-y-4">

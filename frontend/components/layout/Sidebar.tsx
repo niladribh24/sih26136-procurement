@@ -10,7 +10,7 @@ import {
   Building2,
   Share2,
   PlusCircle,
-  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { UserRole } from "@/lib/types";
 
@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
     },
     {
       href: "/startup/profile",
-      label: "DPIIT Profile & AI Tags",
+      label: "DPIIT Profile & Capabilities",
       icon: Building2,
       stage: "Capabilities",
     },
@@ -131,11 +131,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
       {/* RBAC Verified Footnote */}
       <div className="p-3 bg-[var(--surface-subtle)] border border-[var(--line)] rounded-[6px] text-[11px] text-[var(--ink-muted)]">
         <div className="flex items-center gap-1.5 font-medium text-[var(--ink)]">
-          <ShieldAlert className="w-3.5 h-3.5 text-[var(--positive)]" />
-          <span>Strict RBAC Active</span>
+          <ShieldCheck className="w-3.5 h-3.5 text-[var(--positive)]" />
+          <span>Authorized Session</span>
         </div>
         <p className="text-[10px] text-[var(--ink-muted)] mt-1 leading-tight">
-          Session gated by Edge Middleware. Zero cross-role data leakage.
+          Role-isolated portal access with cryptographically signed tokens.
         </p>
       </div>
     </aside>

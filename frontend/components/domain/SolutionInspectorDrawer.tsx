@@ -103,10 +103,10 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
 
           <div className="text-right shrink-0">
             <span className="text-xs font-mono-data text-[var(--ink-muted)] block">
-              Cosine Similarity
+              Requirement Match
             </span>
             <span className="text-base font-bold font-mono-data text-[var(--highlight)]">
-              {Math.round((solution.matchScore || 0) * 100)}% Match
+              {Math.round((solution.matchScore || 0) * 100)}% Fit
             </span>
           </div>
         </div>
@@ -114,7 +114,7 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
         {/* Side-by-Side Comparison: Problem Requirement vs Solution Excerpt */}
         <div className="space-y-3">
           <h3 className="text-xs font-mono-data uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
-            Side-by-Side Semantic Matching
+            Requirement Alignment & Criteria Verification
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -129,13 +129,31 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
 
             <div className="p-3 bg-[var(--highlight-soft)] border border-[var(--highlight)]/30 rounded-[6px] space-y-1">
               <span className="text-[10px] font-mono-data uppercase text-[var(--highlight)] font-bold block">
-                Startup Proposal Excerpt (Matched):
+                Startup Proposal Excerpt:
               </span>
               <p className="text-[var(--ink)] leading-relaxed">
                 {solution.abstract}
               </p>
             </div>
           </div>
+
+          {solution.matchedKeywords && solution.matchedKeywords.length > 0 && (
+            <div className="p-3 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[6px] space-y-1.5 text-xs">
+              <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--ink-muted)] block font-semibold">
+                Verified Technical Keyword Matches:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {solution.matchedKeywords.map((kw) => (
+                  <span
+                    key={kw}
+                    className="px-2 py-0.5 rounded-[4px] bg-[var(--surface)] border border-[var(--line)] text-[var(--ink)] text-[11px] font-mono-data"
+                  >
+                    ✓ {kw}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Automated Eligibility Checks */}

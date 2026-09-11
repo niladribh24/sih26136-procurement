@@ -59,7 +59,7 @@ export default function GovernmentRankedShortlistPage() {
   if (loading) {
     return (
       <div className="p-12 text-center text-xs font-mono-data text-[var(--ink-muted)]">
-        Computing semantic embeddings & ranking...
+        Loading proposals & evaluation rankings...
       </div>
     );
   }
@@ -99,10 +99,10 @@ export default function GovernmentRankedShortlistPage() {
         code={problem.code}
         title={problem.title}
         subtitle={`${problem.department} · Budget: ${problem.budgetBand} · Target: ${problem.targetTRL}`}
-        badge={<Badge variant="highlight">HERO SCREEN 1: RANKED SHORTLIST</Badge>}
+        badge={<Badge variant="highlight">Stage 1: Proposal Ranking</Badge>}
       />
 
-      {/* AI Ranking Telemetry Banner */}
+      {/* Proposal Ranking Telemetry Banner */}
       <div className="p-4 bg-[var(--surface-raised)] border border-[var(--highlight)]/40 rounded-[8px] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-[6px] bg-[var(--highlight-soft)] flex items-center justify-center text-[var(--highlight)]">
@@ -110,10 +110,10 @@ export default function GovernmentRankedShortlistPage() {
           </div>
           <div>
             <div className="text-xs font-bold text-[var(--ink)]">
-              NLP Semantic Matching & Cosine Similarity Ranking Active
+              Automated Technical Evaluation & Fit Scoring Active
             </div>
             <div className="text-[11px] text-[var(--ink-muted)]">
-              Submissions automatically embedded with sentence-transformers and ranked against technical acceptance criteria.
+              Proposals scored against department challenge requirements, claimed TRL, and quantitative acceptance criteria.
             </div>
           </div>
         </div>

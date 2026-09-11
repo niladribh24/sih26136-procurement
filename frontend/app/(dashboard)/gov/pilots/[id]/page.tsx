@@ -95,7 +95,7 @@ export default function GovernmentPilotTrackerPage() {
         code={pilot.code}
         title={`${pilot.startupName} — Field Pilot Tracker`}
         subtitle={`${pilot.department} · Sanction: ₹${(pilot.totalBudget / 100000).toFixed(1)}L · Duration: ${pilot.durationWeeks} Weeks`}
-        badge={<Badge variant="highlight">HERO SCREEN 2: PILOT TRACKER</Badge>}
+        badge={<Badge variant="highlight">Stage 2: Milestone Verification</Badge>}
         actions={
           allMilestonesVerified || isRecommended ? (
             <Button

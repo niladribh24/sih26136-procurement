@@ -214,11 +214,11 @@ export default function StartupProfilePage() {
           <div>
             <h2 className="text-base font-bold text-[var(--ink)] font-editorial flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[var(--highlight)]" />
-              <span>AI Capability Tag Extractor (Stage 1: Identify)</span>
+              <span>Technical Capability Tag Extraction (Stage 1: Identify)</span>
             </h2>
             <p className="text-xs text-[var(--ink-muted)] mt-1">
-              Upload past technical project reports, patents, or whitepapers. The NLP pipeline
-              extracts verified skills used for automated problem matching.
+              Upload past technical project reports, patents, or whitepapers. Automated document analysis
+              extracts verified capabilities used for challenge matching.
             </p>
           </div>
 
@@ -240,7 +240,7 @@ export default function StartupProfilePage() {
                 {isExtracting ? (
                   <span className="text-[var(--highlight)] flex items-center gap-1.5 font-mono-data">
                     <Clock className="w-3.5 h-3.5 animate-spin" />
-                    Extracting skills via NLP pipeline...
+                    Extracting capabilities & sector tags...
                   </span>
                 ) : (
                   <span>
@@ -256,7 +256,9 @@ export default function StartupProfilePage() {
 
           {extractedSummary && (
             <div className="p-3 bg-[var(--surface-subtle)] border border-[var(--line)] rounded-[6px] text-xs text-[var(--ink-secondary)]">
-              <span className="font-semibold text-[var(--ink)]">NLP Synthesis: </span>
+              <span className="font-semibold text-[var(--ink)] font-mono-data uppercase text-[11px] block mb-1">
+                Extracted Project Abstract:
+              </span>
               {extractedSummary}
             </div>
           )}
