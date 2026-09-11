@@ -12,9 +12,9 @@
 SAMARTH includes a zero-friction **Persona Quick-Switcher** directly in the top header (`TopHeader.tsx`). You never need to manually type credentials during a live pitch.
 
 ```
-┌────────────────────────────────────────────────────────────────────────────────────────────┐
-│  [SAMARTH EMBLEM]  SAMARTH · Public Procurement Lifecycle       [ 👤 Active: Dr. A. Sharma ▼ ]│
-└────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  [SAMARTH EMBLEM]  SAMARTH · Public Procurement Lifecycle       [ 👤 Active: Dr. A. Sharma ▼ ]  │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Pre-Seeded Personas

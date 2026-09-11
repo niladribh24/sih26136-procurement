@@ -12,10 +12,10 @@
 The frontend client communicates with the backend via a RESTful JSON API. All mutating requests and secured reads require session tokens and role headers.
 
 ```
-┌───────────────────────────┐         REST / JSON (HTTPS)        ┌───────────────────────────┐
+┌───────────────────────────┐         REST / JSON (HTTPS)         ┌───────────────────────────┐
 │     SAMARTH Frontend      │ ─────────────────────────────────▶ │      FastAPI Backend      │
 │  (Next.js 16 App Router)  │ ◀───────────────────────────────── │    (PostgreSQL Storage)   │
-└───────────────────────────┘    Authorization: Bearer <token>   └───────────────────────────┘
+└───────────────────────────┘    Authorization: Bearer <token>    └───────────────────────────┘
 ```
 
 ### 1.1 Base URL & Environment
