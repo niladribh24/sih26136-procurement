@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Building2, Rocket, AlertCircle, Sparkles } from "lucide-react";
 import { DEMO_PERSONAS, setSession } from "@/lib/auth";
+import { UserRole, UserSession } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 

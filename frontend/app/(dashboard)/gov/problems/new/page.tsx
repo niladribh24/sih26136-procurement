@@ -97,7 +97,7 @@ export default function PostNewProblemPage() {
             <Select
               label="Domain Category"
               value={domain}
-              onChange={(e) => setDomain(e.target.value)}
+              onChange={(e) => setDomain(e.target.value as Problem["domain"])}
               options={[
                 { value: "DroneTech", label: "DroneTech & Aerospace" },
                 { value: "AgriTech", label: "AgriTech & Farm Mechanization" },
@@ -111,7 +111,7 @@ export default function PostNewProblemPage() {
             <Select
               label="Target Budget Band"
               value={budgetBand}
-              onChange={(e) => setBudgetBand(e.target.value)}
+              onChange={(e) => setBudgetBand(e.target.value as Problem["budgetBand"])}
               options={[
                 { value: "< ₹10L", label: "Under ₹10 Lakhs (Micro-Trial)" },
                 { value: "₹10L–₹25L", label: "₹10 Lakhs – ₹25 Lakhs" },
