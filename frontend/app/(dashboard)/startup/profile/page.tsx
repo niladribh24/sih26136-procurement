@@ -20,8 +20,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { StartupTagList } from "@/components/domain/StartupTagList";
 
 export default function StartupProfilePage() {
-  const [startupName, setStartupName] = useState("AeroKisan Technologies Pvt Ltd");
-  const [dpiitNumber, setDpiitNumber] = useState("DIPP98234");
+  const [startupName, setStartupName] = useState(() => getSession()?.orgName || "AeroKisan Technologies Pvt Ltd");
+  const [dpiitNumber, setDpiitNumber] = useState(() => getSession()?.dpiitNumber || "DIPP98234");
   const [turnoverBand, setTurnoverBand] = useState("₹1Cr–₹5Cr");
   const [location, setLocation] = useState("Bengaluru, Karnataka");
   const [incorporationYear, setIncorporationYear] = useState("2022");
@@ -43,14 +43,6 @@ export default function StartupProfilePage() {
     "Extracted from AeroKisan_R&D_Dossier_2025.pdf: Core expertise in SWIR optical telemetry and edge tensor computing."
   );
   const [savedSuccess, setSavedSuccess] = useState(false);
-
-  useEffect(() => {
-    const session = getSession();
-    if (session) {
-      if (session.orgName) setStartupName(session.orgName);
-      if (session.dpiitNumber) setDpiitNumber(session.dpiitNumber);
-    }
-  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

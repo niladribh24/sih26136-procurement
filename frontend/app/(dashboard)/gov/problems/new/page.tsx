@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, PlusCircle, CheckCircle2, Shield } from "lucide-react";
 import { api } from "@/lib/api";
 import { getSession } from "@/lib/auth";
-import { TRL } from "@/lib/types";
+import { Problem, TRL } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -21,10 +21,10 @@ export default function PostNewProblemPage() {
     session?.department || "Division of Precision Agriculture & Drone Systems"
   );
   const [ministry, setMinistry] = useState(session?.orgName || "Indian Council of Agricultural Research (ICAR)");
-  const [domain, setDomain] = useState<any>("DroneTech");
+  const [domain, setDomain] = useState<Problem["domain"]>("DroneTech");
   const [description, setDescription] = useState("");
   const [desiredOutcome, setDesiredOutcome] = useState("");
-  const [budgetBand, setBudgetBand] = useState<any>("₹25L–₹50L");
+  const [budgetBand, setBudgetBand] = useState<Problem["budgetBand"]>("₹25L–₹50L");
   const [targetTRL, setTargetTRL] = useState<TRL>("TRL-6");
   const [deadline, setDeadline] = useState("2026-11-30");
   const [submitting, setSubmitting] = useState(false);

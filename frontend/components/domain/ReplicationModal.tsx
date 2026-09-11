@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Share2, CheckCircle2, Building2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getSession } from "@/lib/auth";
+import { ScaleSolution } from "@/lib/types";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/Input";
 export interface ReplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  scaleSolution: any;
+  scaleSolution: ScaleSolution;
   onSuccess: () => void;
 }
 

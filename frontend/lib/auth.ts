@@ -43,15 +43,27 @@ export function getSession(): UserSession | null {
   }
 }
 
+export function subscribeSession(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("storage", callback);
+  window.addEventListener("samarth_auth_change", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("samarth_auth_change", callback);
+  };
+}
+
 export function setSession(session: UserSession) {
   if (typeof window === "undefined") return;
   localStorage.setItem(SESSION_DATA_KEY, JSON.stringify(session));
   // Set cookie for Next.js Edge middleware checking
   document.cookie = `${SESSION_COOKIE_KEY}=${session.role}; path=/; max-age=86400; SameSite=Lax`;
+  window.dispatchEvent(new Event("samarth_auth_change"));
 }
 
 export function clearSession() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(SESSION_DATA_KEY);
   document.cookie = `${SESSION_COOKIE_KEY}=; path=/; max-age=0; SameSite=Lax`;
+  window.dispatchEvent(new Event("samarth_auth_change"));
 }

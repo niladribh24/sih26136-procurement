@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -12,21 +12,16 @@ import {
   Rocket,
   CheckCircle2,
 } from "lucide-react";
-import { DEMO_PERSONAS, getSession, setSession, clearSession } from "@/lib/auth";
+import { DEMO_PERSONAS, getSession, setSession, clearSession, subscribeSession } from "@/lib/auth";
 import { UserSession } from "@/lib/types";
 
 export const TopHeader: React.FC = () => {
   const router = useRouter();
-  const [session, setCurrentSession] = useState<UserSession | null>(null);
+  const session = useSyncExternalStore(subscribeSession, getSession, () => null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-
-  useEffect(() => {
-    setCurrentSession(getSession());
-  }, []);
 
   const handleSwitchPersona = (persona: UserSession) => {
     setSession(persona);
-    setCurrentSession(persona);
     setDropdownOpen(false);
 
     // Navigate to respective dashboard
@@ -39,7 +34,6 @@ export const TopHeader: React.FC = () => {
 
   const handleLogout = () => {
     clearSession();
-    setCurrentSession(null);
     router.push("/login");
   };
 

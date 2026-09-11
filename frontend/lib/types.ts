@@ -109,6 +109,21 @@ export interface Pilot {
   performanceScore?: number; // 0-100
 }
 
+export interface ScaleSolution {
+  id: string;
+  pilotCode: string;
+  title: string;
+  startupName: string;
+  dpiitNumber: string;
+  originatingDepartment: string;
+  validationDate: string;
+  performanceScore: number;
+  deployedUnits: number;
+  budgetPerUnit: string;
+  summary: string;
+  gfrExemptionClause: string;
+}
+
 export interface ReplicationRequest {
   id: string;
   pilotId: string;

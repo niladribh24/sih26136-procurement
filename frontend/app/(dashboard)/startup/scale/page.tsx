@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Share2, CheckCircle2, ShieldCheck, Award, Building2 } from "lucide-react";
+import { ShieldCheck, Award, Building2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { ScaleSolution } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 
 export default function StartupScaleShowcasePage() {
-  const [scaleItems, setScaleItems] = useState<any[]>([]);
+  const [scaleItems, setScaleItems] = useState<ScaleSolution[]>([]);
 
   useEffect(() => {
     api.getScaleSolutions().then(setScaleItems);

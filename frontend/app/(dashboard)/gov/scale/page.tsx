@@ -6,21 +6,18 @@ import {
   CheckCircle2,
   Building2,
   ShieldCheck,
-  Send,
-  Sparkles,
-  ArrowRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { ReplicationRequest } from "@/lib/types";
+import { ReplicationRequest, ScaleSolution } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ReplicationModal } from "@/components/domain/ReplicationModal";
 
 export default function GovernmentScaleRepositoryPage() {
-  const [solutions, setSolutions] = useState<any[]>([]);
+  const [solutions, setSolutions] = useState<ScaleSolution[]>([]);
   const [replications, setReplications] = useState<ReplicationRequest[]>([]);
-  const [selectedForReplication, setSelectedForReplication] = useState<any | null>(null);
+  const [selectedForReplication, setSelectedForReplication] = useState<ScaleSolution | null>(null);
   const [successToast, setSuccessToast] = useState(false);
 
   const loadData = () => {

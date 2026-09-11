@@ -37,7 +37,7 @@ function LoginForm() {
     handleSubmit(persona);
   };
 
-  const handleSubmit = (overridePersona?: any) => {
+  const handleSubmit = (overridePersona?: UserSession) => {
     const targetPersona =
       overridePersona ||
       DEMO_PERSONAS.find((p) => p.email.toLowerCase() === email.toLowerCase()) ||
