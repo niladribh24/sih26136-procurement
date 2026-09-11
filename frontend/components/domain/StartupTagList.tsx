@@ -22,8 +22,8 @@ export const StartupTagList: React.FC<StartupTagListProps> = ({
     onChange(tags.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAdd = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newTag.trim() || readOnly) return;
     const clean = newTag.trim();
     if (!tags.includes(clean)) {
@@ -73,17 +73,26 @@ export const StartupTagList: React.FC<StartupTagListProps> = ({
         ))}
 
         {!readOnly && isAdding && (
-          <form onSubmit={handleAdd} className="inline-flex items-center gap-1">
+          <div className="inline-flex items-center gap-1">
             <input
               type="text"
               autoFocus
               placeholder="e.g. Edge Compute"
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAdd();
+                } else if (e.key === "Escape") {
+                  setIsAdding(false);
+                }
+              }}
               className="px-2 py-0.5 text-xs bg-[var(--surface-raised)] border border-[var(--accent)] rounded-[4px] text-[var(--ink)] focus:outline-none"
             />
             <button
-              type="submit"
+              type="button"
+              onClick={() => handleAdd()}
               className="px-2 py-0.5 text-xs bg-[var(--accent)] text-white rounded-[4px] cursor-pointer"
             >
               Add
@@ -95,7 +104,7 @@ export const StartupTagList: React.FC<StartupTagListProps> = ({
             >
               <X className="w-3 h-3" />
             </button>
-          </form>
+          </div>
         )}
       </div>
     </div>
