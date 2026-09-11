@@ -15,9 +15,11 @@ import {
 import { DEMO_PERSONAS, getSession, setSession, clearSession, subscribeSession } from "@/lib/auth";
 import { UserSession } from "@/lib/types";
 
+const getServerSnapshot = () => null;
+
 export const TopHeader: React.FC = () => {
   const router = useRouter();
-  const session = useSyncExternalStore(subscribeSession, getSession, () => null);
+  const session = useSyncExternalStore(subscribeSession, getSession, getServerSnapshot);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleSwitchPersona = (persona: UserSession) => {
