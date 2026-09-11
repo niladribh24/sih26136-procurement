@@ -18,7 +18,7 @@ export const SamarthEmblem: React.FC<SamarthEmblemProps> = ({
       width={size}
       height={size}
       className={`shrink-0 ${className}`}
-      aria-label="SAMARTH Sovereign Public Procurement Emblem"
+      aria-label="SAMARTH Public Procurement Authority Emblem"
     >
       <defs>
         <radialGradient id="compEmblemBg" cx="50%" cy="50%" r="50%">
@@ -33,24 +33,26 @@ export const SamarthEmblem: React.FC<SamarthEmblemProps> = ({
           <stop offset="100%" stop-color="#73380F" />
         </linearGradient>
 
-        <path id="compTextArcTop" d="M 18,60 A 42,42 0 0,1 102,60" fill="none" />
-        <path id="compTextArcBottom" d="M 102,60 A 42,42 0 0,1 18,60" fill="none" />
+        {/* Top arc: R=43.5, clockwise for upright text across the upper arch */}
+        <path id="compTextArcTop" d="M 19,75 A 43.5,43.5 0 1,1 101,75" fill="none" />
+        {/* Bottom arc: R=49.0, counter-clockwise for upright text across the lower arch */}
+        <path id="compTextArcBottom" d="M 16,77 A 49,49 0 0,0 104,77" fill="none" />
       </defs>
 
       {/* Outer Solid Edge */}
-      <circle cx="60" cy="60" r="58" fill="url(#compEmblemBg)" stroke="#A25722" stroke-width="2.5" />
+      <circle cx="60" cy="60" r="58" fill="url(#compEmblemBg)" stroke="#A25722" stroke-width="2.2" />
       
       {/* Fine Guilloche / Dashed Ring */}
-      <circle cx="60" cy="60" r="53" fill="none" stroke="#FAF8F3" stroke-width="1" stroke-dasharray="2 1.5" opacity="0.6" />
-      <circle cx="60" cy="60" r="49" fill="none" stroke="#A25722" stroke-width="1" />
+      <circle cx="60" cy="60" r="53.5" fill="none" stroke="#FAF8F3" stroke-width="0.9" stroke-dasharray="2 1.5" opacity="0.6" />
+      <circle cx="60" cy="60" r="50" fill="none" stroke="#A25722" stroke-width="0.8" opacity="0.8" />
 
       {/* Circular Administrative Typography */}
-      <text font-family="'IBM Plex Sans', -apple-system, sans-serif" font-size="6.8" font-weight="700" fill="#FAF8F3" letter-spacing="1.2">
+      <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="5.2" font-weight="700" fill="#FAF8F3" letter-spacing="0.65">
         <textPath href="#compTextArcTop" startOffset="50%" text-anchor="middle">
           SAMARTH · PUBLIC PROCUREMENT
         </textPath>
       </text>
-      <text font-family="'IBM Plex Sans', -apple-system, sans-serif" font-size="6.2" font-weight="600" fill="#D9D6CB" letter-spacing="1.5">
+      <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="4.3" font-weight="600" fill="#D9D6CB" letter-spacing="0.75">
         <textPath href="#compTextArcBottom" startOffset="50%" text-anchor="middle">
           ★ GOVERNMENT OF INDIA ★
         </textPath>
@@ -61,7 +63,7 @@ export const SamarthEmblem: React.FC<SamarthEmblemProps> = ({
       <circle cx="60" cy="60" r="34" fill="none" stroke="#FAF8F3" stroke-width="0.75" opacity="0.3" />
 
       {/* 16-Spoke Ashoka / Dharma Chakra */}
-      <g stroke="#A25722" stroke-width="0.9" opacity="0.75">
+      <g stroke="#A25722" stroke-width="0.8" opacity="0.75">
         <line x1="60" y1="27" x2="60" y2="93" />
         <line x1="27" y1="60" x2="93" y2="60" />
         <line x1="36.67" y1="36.67" x2="83.33" y2="83.33" />
@@ -74,32 +76,32 @@ export const SamarthEmblem: React.FC<SamarthEmblemProps> = ({
 
       {/* Central Civic Shield */}
       <path
-        d="M 60,38 L 76,46 L 73,69 C 73,79 66,85 60,88 C 54,85 47,79 47,69 L 44,46 Z"
+        d="M 60,36 L 76,45 L 73,67 C 73,77 66,84 60,87 C 54,84 47,77 47,67 L 44,45 Z"
         fill="#1B365D"
         stroke="#FAF8F3"
-        stroke-width="1.5"
+        stroke-width="1.4"
         stroke-linejoin="round"
       />
 
       {/* Upward Dynamic Chevron (Startup Innovation) */}
-      <polygon points="60,43 71,55 60,51 49,55" fill="url(#compGoldGradient)" stroke="#FAF8F3" stroke-width="0.6" />
-      <polygon points="60,53 69,63 60,60 51,63" fill="#265C42" stroke="#FAF8F3" stroke-width="0.5" />
+      <polygon points="60,41 71,52 60,48 49,52" fill="url(#compGoldGradient)" stroke="#FAF8F3" stroke-width="0.5" />
+      <polygon points="60,50 69,59 60,56 51,59" fill="#265C42" stroke="#FAF8F3" stroke-width="0.5" />
 
-      {/* Central Star */}
-      <circle cx="60" cy="70" r="3" fill="#FAF8F3" />
-      <circle cx="60" cy="70" r="1.5" fill="#1B365D" />
+      {/* Central Star of Integrity */}
+      <circle cx="60" cy="65" r="2.6" fill="#FAF8F3" />
+      <circle cx="60" cy="65" r="1.3" fill="#1B365D" />
 
-      {/* Base Inscription Tag */}
-      <rect x="50" y="78" width="20" height="4.5" rx="1.5" fill="#A25722" />
+      {/* Base Inscription Tag inside shield */}
+      <rect x="50" y="72" width="20" height="5.5" rx="1.8" fill="#A25722" stroke="#FAF8F3" stroke-width="0.4" />
       <text
         x="60"
-        y="81.5"
+        y="76.2"
         font-family="'IBM Plex Mono', monospace"
-        font-size="3.2"
+        font-size="3.5"
         font-weight="700"
         fill="#FAF8F3"
         text-anchor="middle"
-        letter-spacing="0.5"
+        letter-spacing="0.4"
       >
         SIH26136
       </text>
