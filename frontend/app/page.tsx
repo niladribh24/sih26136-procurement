@@ -281,7 +281,7 @@ export default function HomePage() {
           SAMARTH Platform · SIH 2026 Problem SIH26136 · Compliant with General Financial Rules (GFR Rule 194) & DPIIT Startup Framework
         </p>
         <p className="mt-1 text-[11px] font-mono-data text-[var(--ink-muted)]">
-          Civic Editorial Interface · Designed for Central & State Ministries, Nodal Evaluators, and Registered DPIIT Startups
+          Designed for Central & State Ministries, Nodal Evaluators, and Registered DPIIT Startups
         </p>
       </footer>
     </div>
