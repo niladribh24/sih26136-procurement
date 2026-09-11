@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <path id="dpiitTop" d="M 12,50 A 38,38 0 0,1 88,50" fill="none" />
+    <path id="dpiitBottom" d="M 88,50 A 38,38 0 0,1 12,50" fill="none" />
+  </defs>
+
+  <!-- Outer Ring -->
+  <circle cx="50" cy="50" r="47" fill="#FAF8F3" stroke="#1B365D" stroke-width="2" />
+  <circle cx="50" cy="50" r="42" fill="none" stroke="#A25722" stroke-width="1" stroke-dasharray="2 1.5" />
+
+  <!-- Circular Text -->
+  <text font-family="'IBM Plex Sans', sans-serif" font-size="5.8" font-weight="700" fill="#1B365D" letter-spacing="1.2">
+    <textPath href="#dpiitTop" startOffset="50%" text-anchor="middle">
+      DEPARTMENT FOR PROMOTION OF
+    </textPath>
+  </text>
+  <text font-family="'IBM Plex Sans', sans-serif" font-size="5.2" font-weight="700" fill="#A25722" letter-spacing="1">
+    <textPath href="#dpiitBottom" startOffset="50%" text-anchor="middle">
+      ★ INDUSTRY &amp; INTERNAL TRADE ★
+    </textPath>
+  </text>
+
+  <!-- Center Core -->
+  <circle cx="50" cy="50" r="28" fill="#1B365D" stroke="#A25722" stroke-width="1.2" />
+
+  <!-- Innovation Star Shield -->
+  <polygon points="50,28 60,34 58,45 50,49 42,45 40,34" fill="#FAF8F3" />
+  <polygon points="50,31 57,35 55,43 50,46 45,43 43,35" fill="#1B365D" />
+
+  <!-- Checkmark -->
+  <path d="M 45,39 L 48,42 L 55,35" fill="none" stroke="#FAF8F3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+
+  <text x="50" y="58" font-family="'IBM Plex Mono', monospace" font-size="5" font-weight="700" fill="#FAF8F3" text-anchor="middle" letter-spacing="0.5">
+    RECOGNIZED
+  </text>
+  <text x="50" y="65" font-family="'IBM Plex Sans', sans-serif" font-size="4" font-weight="600" fill="#F9EFE6" text-anchor="middle">
+    STARTUP INDIA
+  </text>
+</svg>

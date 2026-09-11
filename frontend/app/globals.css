@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+:root {
+  /* Surfaces & Canvas */
+  --canvas: #F4F2EB;
+  --surface: #FAF8F3;
+  --surface-raised: #FFFFFF;
+  --surface-subtle: #EBE8DF;
+
+  /* Ink & Typography */
+  --ink: #161917;
+  --ink-secondary: #474B46;
+  --ink-muted: #6E726A;
+  --ink-faint: #989C94;
+
+  /* Lines & Dividers */
+  --line: #D9D6CB;
+  --line-strong: #BEBBB0;
+
+  /* Sovereign Navy */
+  --accent: #1B365D;
+  --accent-hover: #122644;
+  --accent-soft: #E7EDF5;
+
+  /* Warm Ochre / Amber */
+  --highlight: #A25722;
+  --highlight-hover: #864417;
+  --highlight-soft: #F9EFE6;
+
+  /* Semantic Feedback */
+  --positive: #265C42;
+  --positive-soft: #E1EFE7;
+  --warning: #8F5E1E;
+  --warning-soft: #F5ECD8;
+  --danger: #963833;
+  --danger-soft: #F5E3E1;
+  --info: #355872;
+  --info-soft: #E0EBF2;
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-ibm-plex-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-editorial {
+  font-family: var(--font-newsreader), Georgia, serif;
+}
+
+.font-mono-data {
+  font-family: var(--font-ibm-plex-mono), monospace;
+}

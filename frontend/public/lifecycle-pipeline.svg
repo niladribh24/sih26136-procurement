@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 110" width="760" height="110">
+  <defs>
+    <!-- Arrow Marker -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#BEBBB0" />
+    </marker>
+  </defs>
+
+  <!-- Connectors -->
+  <line x1="175" y1="55" x2="200" y2="55" stroke="#BEBBB0" stroke-width="2" marker-end="url(#arrow)" />
+  <line x1="365" y1="55" x2="390" y2="55" stroke="#BEBBB0" stroke-width="2" marker-end="url(#arrow)" />
+  <line x1="555" y1="55" x2="580" y2="55" stroke="#BEBBB0" stroke-width="2" marker-end="url(#arrow)" />
+
+  <!-- Stage 01: IDENTIFY -->
+  <g transform="translate(10, 15)">
+    <rect width="165" height="80" rx="8" fill="#FFFFFF" stroke="#1B365D" stroke-width="1.5" />
+    <rect x="12" y="12" width="52" height="16" rx="3" fill="#E7EDF5" />
+    <text x="38" y="23" font-family="'IBM Plex Mono', monospace" font-size="8.5" font-weight="700" fill="#1B365D" text-anchor="middle">
+      STAGE 01
+    </text>
+    <text x="12" y="44" font-family="'Newsreader', serif" font-size="14" font-weight="700" fill="#161917">
+      IDENTIFY
+    </text>
+    <text x="12" y="58" font-family="'IBM Plex Sans', sans-serif" font-size="8" fill="#6E726A">
+      Operational challenge intake &amp;
+    </text>
+    <text x="12" y="69" font-family="'IBM Plex Sans', sans-serif" font-size="8" fill="#6E726A">
+      automated technical evaluation
+    </text>
+  </g>
+
+  <!-- Stage 02: PILOT -->
+  <g transform="translate(200, 15)">
+    <rect width="165" height="80" rx="8" fill="#FFFFFF" stroke="#A25722" stroke-width="1.5" />
+    <rect x="12" y="12" width="52" height="16" rx="3" fill="#F9EFE6" />
+    <text x="38" y="23" font-family="'IBM Plex Mono', monospace" font-size="8.5" font-weight="700" fill="#A25722" text-anchor="middle">
+      STAGE 02
+    </text>
+    <text x="12" y="44" font-family="'Newsreader', serif" font-size="14" font-weight="700" fill="#161917">
+      PILOT
+    </text>
+    <text x="12" y="58" font-family="'IBM Plex Sans', sans-serif" font-size="8" fill="#6E726A">
+      Sandbox trial execution with
+    </text>
+    <text x="12" y="69" font-family="'IBM Plex Sans', sans-serif" font-size="8" fill="#6E726A">
+      independent milestone audits
+    </text>
+  </g>
+
+  <!-- Stage 03: PROCURE -->
+  <g transform="translate(390, 15)">
+    <rect width="165" height="80" rx="8" fill="#FFFFFF" stroke="#265C42" stroke-width="1.5" />
+    <rect x="12" y="12" width="52" height="16" rx="3" fill="#E1EFE7" />
+    <text x="38" y="23" font-family="'IBM Plex Mono', monospace" font-size="8.5" font-weight="700" fill="#265C42" text-anchor="middle">
+      STAGE 03
+    </text>
+    <text x="12" y="44" font-family="'Newsreader', serif" font-size="14" font-weight="700" fill="#161917">
+      PROCURE
+    </text>
+    <text x="12" y="58" font-family="'IBM Plex Sans', sans-serif" font-size="8" fill="#6E726A">
+      Direct sanction memorandum
+    </text>
+    <text x="12" y="69" font-family="'IBM Plex Sans', sans-serif" font-size="8" fill="#6E726A">
+      under GFR 149 &amp; 194 exemptions
+    </text>
+  </g>
+
+  <!-- Stage 04: SCALE -->
+  <g transform="translate(580, 15)">
+    <rect width="165" height="80" rx="8" fill="#FFFFFF" stroke="#6D28D9" stroke-width="1.5" />
+    <rect x="12" y="12" width="52" height="16" rx="3" fill="#F3E8FF" />
+    <text x="38" y="23" font-family="'IBM Plex Mono', monospace" font-size="8.5" font-weight="700" fill="#6D28D9" text-anchor="middle">
+      STAGE 04
+    </text>
+    <text x="12" y="44" font-family="'Newsreader', serif" font-size="14" font-weight="700" fill="#161917">
+      SCALE
+    </text>
+    <text x="12" y="58" font-family="'IBM Plex Sans', sans-serif" font-size="8" fill="#6E726A">
+      National validated directory for
+    </text>
+    <text x="12" y="69" font-family="'IBM Plex Sans', sans-serif" font-size="8" fill="#6E726A">
+      multi-department replication
+    </text>
+  </g>
+</svg>
