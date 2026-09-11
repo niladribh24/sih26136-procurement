@@ -44,18 +44,45 @@ export default function GovernmentRankedShortlistPage() {
     );
   }, [problemId]);
 
-  const handleShortlist = (sol: Solution) => {
+  const handleShortlist = async (sol: Solution) => {
+    const newStatus = sol.status === "shortlisted" ? "under_review" : "shortlisted";
     setSolutions((prev) =>
-      prev.map((s) => (s.id === sol.id ? { ...s, status: "shortlisted" } : s))
+      prev.map((s) => (s.id === sol.id ? { ...s, status: newStatus } : s))
     );
+    try {
+      await api.updateSolutionStatus(sol.id, newStatus);
+    } catch (e) {
+      console.error("Failed to update solution status:", e);
+    }
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-xs text-[var(--ink-muted)]">Computing semantic embeddings & ranking...</div>;
+    return (
+      <div className="p-12 text-center text-xs font-mono-data text-[var(--ink-muted)]">
+        Computing semantic embeddings & ranking...
+      </div>
+    );
   }
 
   if (!problem) {
-    return <div className="p-8 text-center text-xs text-[var(--ink)]">Problem statement not found.</div>;
+    return (
+      <div className="space-y-4 max-w-xl mx-auto py-12 text-center">
+        <div className="p-8 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-3">
+          <div className="text-sm font-bold text-[var(--ink)]">Problem Statement Not Found</div>
+          <p className="text-xs text-[var(--ink-muted)]">
+            The requested challenge statement ID does not exist or has been archived.
+          </p>
+          <div className="pt-2">
+            <Link href="/gov/problems">
+              <Button variant="secondary" size="sm">
+                <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                Return to Problems
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

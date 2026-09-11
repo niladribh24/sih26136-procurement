@@ -18,7 +18,7 @@ export const AuditStamp: React.FC<AuditStampProps> = ({
 }) => {
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[var(--surface-subtle)] border border-[var(--line)] text-[11px] font-mono-data text-[var(--ink-muted)] ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[var(--surface-subtle)] border border-[var(--line)] text-[10px] font-mono-data text-[var(--ink-muted)] ${className}`}
     >
       <ShieldCheck className="w-3.5 h-3.5 text-[var(--positive)]" />
       <span>

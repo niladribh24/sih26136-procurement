@@ -33,7 +33,7 @@ export default function GovernmentPilotTrackerPage() {
   const [verifyingMilestone, setVerifyingMilestone] = useState<Milestone | null>(null);
 
   const loadPilot = () => {
-    api.getPilot(pilotId).then((data) => {
+    api.getPilot(pilotId).then((data: Pilot | null) => {
       setPilot(data ? { ...data } : null);
       setLoading(false);
     });
@@ -50,11 +50,32 @@ export default function GovernmentPilotTrackerPage() {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-xs text-[var(--ink-muted)]">Loading trial state machine...</div>;
+    return (
+      <div className="p-12 text-center text-xs font-mono-data text-[var(--ink-muted)]">
+        Loading trial state machine...
+      </div>
+    );
   }
 
   if (!pilot) {
-    return <div className="p-8 text-center text-xs text-[var(--ink)]">Pilot record not found.</div>;
+    return (
+      <div className="space-y-4 max-w-xl mx-auto py-12 text-center">
+        <div className="p-8 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-3">
+          <div className="text-sm font-bold text-[var(--ink)]">Pilot Record Not Found</div>
+          <p className="text-xs text-[var(--ink-muted)]">
+            The requested trial record does not exist or has been archived.
+          </p>
+          <div className="pt-2">
+            <Link href="/gov/pilots">
+              <Button variant="secondary" size="sm">
+                <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                Return to Department Pilots
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const allMilestonesVerified = pilot.milestones.every((m) => m.status === "verified");
@@ -77,16 +98,18 @@ export default function GovernmentPilotTrackerPage() {
         badge={<Badge variant="highlight">HERO SCREEN 2: PILOT TRACKER</Badge>}
         actions={
           allMilestonesVerified || isRecommended ? (
-            <Link href={`/gov/pilots/${pilot.id}/procure`}>
-              <Button variant="primary" size="md">
-                <Award className="w-4 h-4 text-[var(--highlight)]" />
-                <span>
-                  {isRecommended
-                    ? "View Generated Procurement Docket →"
-                    : "Recommend for Procurement (Stage 3) →"}
-                </span>
-              </Button>
-            </Link>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={isRecommended ? () => router.push(`/gov/pilots/${pilot.id}/procure`) : handleRecommendProcurement}
+            >
+              <Award className="w-4 h-4 text-[var(--highlight)]" />
+              <span>
+                {isRecommended
+                  ? "View Generated Procurement Docket →"
+                  : "Recommend for Direct Sanction (Stage 3) →"}
+              </span>
+            </Button>
           ) : (
             <div className="text-xs font-mono-data text-[var(--ink-muted)]">
               All milestones must be verified to unlock procurement

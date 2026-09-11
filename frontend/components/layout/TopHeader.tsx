@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useSyncExternalStore } from "react";
+import React, { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Building2,
   Rocket,
+  GraduationCap,
   CheckCircle2,
 } from "lucide-react";
 import { DEMO_PERSONAS, getSession, setSession, clearSession, subscribeSession } from "@/lib/auth";
@@ -21,6 +22,28 @@ export const TopHeader: React.FC = () => {
   const router = useRouter();
   const session = useSyncExternalStore(subscribeSession, getSession, getServerSnapshot);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [dropdownOpen]);
 
   const handleSwitchPersona = (persona: UserSession) => {
     setSession(persona);
@@ -40,8 +63,8 @@ export const TopHeader: React.FC = () => {
   };
 
   return (
-    <header className="w-full bg-[var(--surface-raised)] border-b border-[var(--line)] sticky top-0 z-40">
-      <div className="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
+    <header className="w-full bg-[var(--surface-raised)] border-b border-[var(--line)] sticky top-0 z-40 print:hidden">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Left: Brand / Emblem */}
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2.5 group">
@@ -57,7 +80,7 @@ export const TopHeader: React.FC = () => {
                   SIH26136
                 </span>
               </div>
-              <p className="text-[11px] text-[var(--ink-muted)] tracking-tight">
+              <p className="text-[11px] text-[var(--ink-muted)] tracking-tight hidden sm:block">
                 Public Procurement & Startup Innovation Engine
               </p>
             </div>
@@ -66,8 +89,8 @@ export const TopHeader: React.FC = () => {
 
         {/* Right: Demo Persona Switcher & Session Controls */}
         <div className="flex items-center gap-4">
-          {/* Persona Switcher Menu */}
-          <div className="relative">
+          {/* Demo Persona Switcher Dropdown */}
+          <div className="relative" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -107,6 +130,8 @@ export const TopHeader: React.FC = () => {
                         <div className="flex items-start gap-2">
                           {persona.role === "startup" ? (
                             <Rocket className="w-4 h-4 mt-0.5 text-[var(--highlight)] shrink-0" />
+                          ) : persona.role === "evaluator" ? (
+                            <GraduationCap className="w-4 h-4 mt-0.5 text-[#6D28D9] shrink-0" />
                           ) : (
                             <Building2 className="w-4 h-4 mt-0.5 text-[var(--accent)] shrink-0" />
                           )}

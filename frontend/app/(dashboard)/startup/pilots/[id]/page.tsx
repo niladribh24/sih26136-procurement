@@ -35,7 +35,7 @@ export default function StartupPilotDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    api.getPilot(pilotId).then((data) => {
+    api.getPilot(pilotId).then((data: Pilot | null) => {
       setPilot(data);
       setLoading(false);
     });
@@ -96,11 +96,18 @@ export default function StartupPilotDetailPage() {
           State Machine Progression
         </span>
         <div className="flex flex-wrap items-center gap-2 text-xs font-mono-data">
-          {["Proposed", "Under review", "Approved", "Active", "Completed"].map((st, idx) => {
+          {[
+            "Proposed",
+            "Under review",
+            "Approved",
+            "Active",
+            "Completed",
+            "Recommended for procurement",
+            "Procured",
+          ].map((st, idx, arr) => {
+            const currentIdx = arr.indexOf(pilot.status);
             const isCurrent = pilot.status === st;
-            const isPassed =
-              (pilot.status === "Active" && idx < 3) ||
-              (pilot.status === "Completed" && idx <= 4);
+            const isPassed = currentIdx > idx || pilot.status === "Procured";
 
             return (
               <React.Fragment key={st}>
@@ -116,7 +123,7 @@ export default function StartupPilotDetailPage() {
                   {isPassed && "✓ "}
                   {st}
                 </span>
-                {idx < 4 && <span className="text-[var(--ink-faint)]">──▶</span>}
+                {idx < arr.length - 1 && <span className="text-[var(--ink-faint)]">──▶</span>}
               </React.Fragment>
             );
           })}
@@ -144,6 +151,8 @@ export default function StartupPilotDetailPage() {
                     variant={
                       milestone.status === "verified"
                         ? "positive"
+                        : milestone.status === "failed"
+                        ? "danger"
                         : milestone.status === "submitted"
                         ? "warning"
                         : "default"
@@ -201,20 +210,47 @@ export default function StartupPilotDetailPage() {
               </div>
             )}
 
+            {milestone.status === "failed" && milestone.verificationRemarks && (
+              <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)]">
+                <div className="font-bold font-mono-data">
+                  Discrepancy Flagged by Independent Validator ({milestone.verifiedAt || "Audit Rejection"}):
+                </div>
+                <p className="mt-1 text-[11px] leading-relaxed">{milestone.verificationRemarks}</p>
+                <div className="text-[10px] uppercase font-mono-data font-semibold mt-1">
+                  Action Required: Rectify benchmark telemetry and re-upload deliverable.
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between pt-3 border-t border-[var(--line)]">
-              <span className="text-[11px] font-mono-data text-[var(--ink-muted)]">
-                {milestone.deliverableFileUrl ? `Attached: ${milestone.deliverableFileUrl}` : "No file attached yet"}
-              </span>
+              <div className="text-[11px] font-mono-data text-[var(--ink-muted)]">
+                {milestone.deliverableFileUrl ? (
+                  <a
+                    href={milestone.deliverableFileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[var(--accent)] underline hover:text-[var(--accent-hover)]"
+                  >
+                    Attached: {milestone.deliverableFileUrl}
+                  </a>
+                ) : (
+                  <span>No file attached yet</span>
+                )}
+              </div>
 
               {milestone.status !== "verified" && (
                 <Button
-                  variant={milestone.status === "submitted" ? "secondary" : "primary"}
+                  variant={milestone.status === "failed" ? "danger" : milestone.status === "submitted" ? "secondary" : "primary"}
                   size="sm"
                   onClick={() => handleOpenUpload(milestone)}
                 >
                   <FileUp className="w-3.5 h-3.5" />
                   <span>
-                    {milestone.status === "submitted" ? "Re-upload Deliverable" : "Upload Deliverable & Log KPI"}
+                    {milestone.status === "submitted"
+                      ? "Re-upload Deliverable"
+                      : milestone.status === "failed"
+                      ? "Re-submit Rectified Deliverable"
+                      : "Upload Deliverable & Log KPI"}
                   </span>
                 </Button>
               )}

@@ -40,13 +40,13 @@ export const Drawer: React.FC<DrawerProps> = ({
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-200"
+        className="fixed inset-0 bg-black/50 transition-opacity duration-200"
         onClick={onClose}
       />
 
       <div className="fixed inset-y-0 right-0 flex pl-10 max-w-full">
         <div
-          className={`w-screen ${widthClass} bg-[var(--surface-raised)] border-l border-[var(--line)] shadow-xl flex flex-col transform transition-transform duration-200 ease-out`}
+          className={`w-screen ${widthClass} bg-[var(--surface-raised)] border-l border-[var(--line)] shadow-xl flex flex-col transform transition-transform duration-240 ease-out`}
         >
           {/* Header */}
           <div className="px-6 py-4 border-b border-[var(--line)] flex items-start justify-between bg-[var(--surface)]">

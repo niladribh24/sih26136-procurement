@@ -10,7 +10,7 @@ export interface StartupTagListProps {
 }
 
 export const StartupTagList: React.FC<StartupTagListProps> = ({
-  tags,
+  tags = [],
   onChange,
   readOnly = false,
 }) => {
@@ -26,7 +26,7 @@ export const StartupTagList: React.FC<StartupTagListProps> = ({
     if (e) e.preventDefault();
     if (!newTag.trim() || readOnly) return;
     const clean = newTag.trim();
-    if (!tags.includes(clean)) {
+    if (!tags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
       onChange([...tags, clean]);
     }
     setNewTag("");

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, PlusCircle, CheckCircle2, Shield } from "lucide-react";
@@ -17,37 +17,66 @@ export default function PostNewProblemPage() {
   const session = getSession();
 
   const [title, setTitle] = useState("");
-  const [department, setDepartment] = useState(
-    session?.department || "Division of Precision Agriculture & Drone Systems"
-  );
-  const [ministry, setMinistry] = useState(session?.orgName || "Indian Council of Agricultural Research (ICAR)");
+  const [department, setDepartment] = useState("Division of Precision Agriculture & Drone Systems");
+  const [ministry, setMinistry] = useState("Indian Council of Agricultural Research (ICAR)");
   const [domain, setDomain] = useState<Problem["domain"]>("DroneTech");
   const [description, setDescription] = useState("");
   const [desiredOutcome, setDesiredOutcome] = useState("");
+  const [targetKPIMetric, setTargetKPIMetric] = useState("");
+  const [targetKPIThreshold, setTargetKPIThreshold] = useState("");
   const [budgetBand, setBudgetBand] = useState<Problem["budgetBand"]>("₹25L–₹50L");
   const [targetTRL, setTargetTRL] = useState<TRL>("TRL-6");
   const [deadline, setDeadline] = useState("2026-11-30");
+  const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const sess = getSession();
+    if (sess?.department) setDepartment(sess.department);
+    if (sess?.orgName) setMinistry(sess.orgName);
+  }, []);
+
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
+
+    if (!title.trim()) {
+      setFormError("Challenge title is required.");
+      return;
+    }
+    if (!description.trim()) {
+      setFormError("Operational bottleneck description is required.");
+      return;
+    }
+    if (!desiredOutcome.trim()) {
+      setFormError("Target outcome and acceptance criteria are required.");
+      return;
+    }
+
     setSubmitting(true);
 
+    const consolidatedCriteria = targetKPIMetric.trim() && targetKPIThreshold.trim()
+      ? `${desiredOutcome.trim()} [Key Verification Metric: ${targetKPIMetric.trim()} | Threshold: ${targetKPIThreshold.trim()}]`
+      : desiredOutcome.trim();
+
     try {
-      const created = await api.createProblem({
-        title,
-        department,
-        ministry,
+      await api.createProblem({
+        title: title.trim(),
+        department: department.trim(),
+        ministry: ministry.trim(),
         domain,
-        description,
-        desiredOutcome,
+        description: description.trim(),
+        desiredOutcome: consolidatedCriteria,
         budgetBand,
         targetTRL,
         deadline,
       });
 
       router.push("/gov/problems");
-    } finally {
+    } catch (err) {
+      setFormError("Failed to publish challenge statement. Please verify inputs and retry.");
       setSubmitting(false);
     }
   };
@@ -67,6 +96,12 @@ export default function PostNewProblemPage() {
         title="Publish New Operational Challenge"
         subtitle="Define department technical specifications, operational bottlenecks, and acceptance benchmarks for startup bidding."
       />
+
+      {formError && (
+        <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)]">
+          {formError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] p-6 shadow-2xs">
         <div className="space-y-4">
@@ -121,21 +156,21 @@ export default function PostNewProblemPage() {
             />
 
             <Select
-              label="Minimum Required TRL"
+              label="Baseline TRL Required"
               value={targetTRL}
               onChange={(e) => setTargetTRL(e.target.value as TRL)}
               options={[
-                { value: "TRL-4", label: "TRL-4 (Lab Proven)" },
-                { value: "TRL-5", label: "TRL-5 (Integrated Rig)" },
-                { value: "TRL-6", label: "TRL-6 (Field Prototype)" },
-                { value: "TRL-7", label: "TRL-7 (Operational)" },
+                { value: "TRL-4", label: "TRL-4: Lab Validation" },
+                { value: "TRL-5", label: "TRL-5: Relevant Environment" },
+                { value: "TRL-6", label: "TRL-6: Simulated Operational" },
+                { value: "TRL-7", label: "TRL-7: Field Demonstration" },
               ]}
             />
           </div>
 
           <div>
             <label className="text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider block mb-1.5">
-              Detailed Operational Problem Narrative <span className="text-[var(--danger)]">*</span>
+              Operational Problem Context & Bottlenecks <span className="text-[var(--danger)]">*</span>
             </label>
             <textarea
               rows={4}
@@ -161,9 +196,27 @@ export default function PostNewProblemPage() {
             />
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 bg-[var(--surface)] border border-[var(--line)] rounded-[6px]">
+            <Input
+              label="Primary Quantitative KPI Metric"
+              placeholder="e.g. Dual-stream frame drop rate"
+              value={targetKPIMetric}
+              onChange={(e) => setTargetKPIMetric(e.target.value)}
+              helperText="Field trial telemetry verification metric"
+            />
+            <Input
+              label="Acceptance Benchmark Threshold"
+              placeholder="e.g. < 0.1% over 24-hr continuous run"
+              value={targetKPIThreshold}
+              onChange={(e) => setTargetKPIThreshold(e.target.value)}
+              helperText="Pass/fail criteria for tranche release"
+            />
+          </div>
+
           <Input
             label="Proposal Submission Deadline"
             type="date"
+            min={todayStr}
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
             required

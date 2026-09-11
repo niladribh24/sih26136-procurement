@@ -13,11 +13,12 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   Building2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getSession } from "@/lib/auth";
-import { Problem, TRL } from "@/lib/types";
+import { Problem, Solution, TRL } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +32,8 @@ export default function StartupProblemSubmissionPage() {
 
   const [problem, setProblem] = useState<Problem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [existingProposal, setExistingProposal] = useState<Solution | null>(null);
+  const [formError, setFormError] = useState("");
 
   // Proposal Form State
   const [title, setTitle] = useState("");
@@ -38,20 +41,55 @@ export default function StartupProblemSubmissionPage() {
   const [claimedTRL, setClaimedTRL] = useState<TRL>("TRL-6");
   const [proposedCost, setProposedCost] = useState("2850000");
   const [proposedDurationWeeks, setProposedDurationWeeks] = useState("8");
-  const [pdfFileName, setPdfFileName] = useState("AeroKisan_Canopy_Surveillance_Proposal.pdf");
+  const [pdfFileName, setPdfFileName] = useState("Technical_Proposal_Dossier.pdf");
   const [submitting, setSubmitting] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getProblem(problemId).then((data) => {
-      setProblem(data);
-      setLoading(false);
-    });
+    setLoading(true);
+    Promise.all([api.getProblem(problemId), api.getSolutions(problemId)])
+      .then(([prob, sols]) => {
+        setProblem(prob);
+        const session = getSession();
+        if (session) {
+          const mine = sols.find(
+            (s: Solution) =>
+              s.startupId === session.id ||
+              s.startupName.toLowerCase() === (session.orgName || "").toLowerCase()
+          );
+          if (mine) setExistingProposal(mine);
+        }
+      })
+      .catch((err: unknown) => console.error("Error loading challenge:", err))
+      .finally(() => setLoading(false));
   }, [problemId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!problem) return;
+    setFormError("");
+    if (!problem || existingProposal || submitting) return;
+
+    const costNum = parseInt(proposedCost, 10);
+    const weeksNum = parseInt(proposedDurationWeeks, 10);
+
+    if (isNaN(costNum) || costNum <= 0) {
+      setFormError("Proposed budget must be a positive numeric amount (e.g. ₹28,50,000).");
+      return;
+    }
+    if (isNaN(weeksNum) || weeksNum <= 0) {
+      setFormError("Target timeline must be at least 1 week.");
+      return;
+    }
+
+    if (!title.trim()) {
+      setFormError("Proposal title is required.");
+      return;
+    }
+
+    if (!abstract.trim()) {
+      setFormError("Technical approach and architecture abstract is required.");
+      return;
+    }
 
     setSubmitting(true);
     const session = getSession();
@@ -64,13 +102,11 @@ export default function StartupProblemSubmissionPage() {
         dpiitNumber: session?.dpiitNumber || "DIPP98234",
         dpiitVerified: true,
         location: "Bengaluru, Karnataka",
-        title: title || `Integrated Technical Solution for ${problem.code}`,
-        abstract:
-          abstract ||
-          "Autonomous modular solution integrating specialized sensors and localized edge processing to address operational constraints outlined in the challenge statement.",
+        title: title.trim(),
+        abstract: abstract.trim(),
         claimedTRL,
-        proposedCost: parseInt(proposedCost, 10) || 2500000,
-        proposedDurationWeeks: parseInt(proposedDurationWeeks, 10) || 8,
+        proposedCost: costNum,
+        proposedDurationWeeks: weeksNum,
         pdfUrl: `/proposals/${pdfFileName}`,
       });
 
@@ -78,7 +114,8 @@ export default function StartupProblemSubmissionPage() {
       setTimeout(() => {
         router.push("/startup/proposals");
       }, 2500);
-    } finally {
+    } catch (err) {
+      setFormError("Failed to record proposal. Please verify connection and retry.");
       setSubmitting(false);
     }
   };
@@ -191,14 +228,40 @@ export default function StartupProblemSubmissionPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Solution Proposal Title"
-              placeholder="e.g. Dual-Stream SWIR Optical Payload with Edge Thermal Clustering"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
+          {existingProposal ? (
+            <div className="p-6 bg-[var(--surface-subtle)] border border-[var(--positive)]/40 rounded-[6px] space-y-3">
+              <div className="flex items-center gap-2 text-[var(--positive)] font-semibold text-xs">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Proposal Already Submitted for this Challenge</span>
+              </div>
+              <p className="text-xs text-[var(--ink-secondary)] leading-relaxed">
+                Your entity has already submitted a technical proposal for this challenge on {existingProposal.submittedAt}:
+                <br />
+                <strong className="text-[var(--ink)]">&ldquo;{existingProposal.title}&rdquo;</strong>
+              </p>
+              <div className="pt-2">
+                <Link href="/startup/proposals">
+                  <Button variant="primary" size="sm">
+                    <span>View Proposal Evaluation Status</span>
+                    <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {formError && (
+                <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)]">
+                  {formError}
+                </div>
+              )}
+              <Input
+                label="Solution Proposal Title"
+                placeholder="e.g. Dual-Stream SWIR Optical Payload with Edge Thermal Clustering"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
 
             <div>
               <label className="text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider block mb-1.5">
@@ -286,6 +349,7 @@ export default function StartupProblemSubmissionPage() {
               </Button>
             </div>
           </form>
+          )}
         </div>
       </div>
     </div>

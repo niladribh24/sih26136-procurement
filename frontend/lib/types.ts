@@ -82,9 +82,12 @@ export interface Milestone {
   trancheAmount: number;
   tranchePercentage: number;
   status: "pending" | "submitted" | "verified" | "failed";
+  trancheDisbursed?: boolean;
+  disbursedAt?: string;
   verifiedBy?: string;
   verifiedAt?: string;
   verificationRemarks?: string;
+  verificationReportUrl?: string;
 }
 
 export interface Pilot {
@@ -95,6 +98,7 @@ export interface Pilot {
   startupId: string;
   startupName: string;
   dpiitNumber: string;
+  dpiitVerified?: boolean;
   department: string;
   ministry: string;
   leadOfficerName: string;
@@ -106,6 +110,7 @@ export interface Pilot {
   totalBudget: number;
   milestones: Milestone[];
   sanctionDocketId?: string;
+  sanctionOrderRef?: string;
   performanceScore?: number; // 0-100
 }
 
@@ -113,6 +118,7 @@ export interface ScaleSolution {
   id: string;
   pilotCode: string;
   title: string;
+  domain: string;
   startupName: string;
   dpiitNumber: string;
   originatingDepartment: string;
@@ -120,6 +126,7 @@ export interface ScaleSolution {
   performanceScore: number;
   deployedUnits: number;
   budgetPerUnit: string;
+  totalBudget?: number;
   summary: string;
   gfrExemptionClause: string;
 }
@@ -135,6 +142,8 @@ export interface ReplicationRequest {
   requestingOfficerEmail: string;
   targetDeploymentSite: string;
   targetQuantity: number;
+  targetBudget?: number;
+  deploymentTimelineWeeks?: number;
   requestedAt: string;
   status: "pending" | "approved" | "in_pilot";
 }

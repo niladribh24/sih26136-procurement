@@ -17,6 +17,7 @@ const STAGES: PilotStatus[] = [
   "Active",
   "Completed",
   "Recommended for procurement",
+  "Procured",
 ];
 
 export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
@@ -24,7 +25,7 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
   leadOfficer,
   independentValidator,
 }) => {
-  const currentIndex = STAGES.indexOf(currentStatus);
+  const currentIndex = Math.max(0, STAGES.indexOf(currentStatus));
 
   return (
     <div className="p-6 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-4 shadow-2xs">

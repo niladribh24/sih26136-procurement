@@ -10,7 +10,7 @@ import {
   AlertCircle,
   Clock,
 } from "lucide-react";
-import { getSession } from "@/lib/auth";
+import { getSession, setSession } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -20,8 +20,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { StartupTagList } from "@/components/domain/StartupTagList";
 
 export default function StartupProfilePage() {
-  const [startupName, setStartupName] = useState(() => getSession()?.orgName || "AeroKisan Technologies Pvt Ltd");
-  const [dpiitNumber, setDpiitNumber] = useState(() => getSession()?.dpiitNumber || "DIPP98234");
+  const [startupName, setStartupName] = useState("AeroKisan Technologies Pvt Ltd");
+  const [dpiitNumber, setDpiitNumber] = useState("DIPP98234");
   const [turnoverBand, setTurnoverBand] = useState("₹1Cr–₹5Cr");
   const [location, setLocation] = useState("Bengaluru, Karnataka");
   const [incorporationYear, setIncorporationYear] = useState("2022");
@@ -44,6 +44,32 @@ export default function StartupProfilePage() {
   );
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // Hydrate from localStorage / session cleanly after mount to avoid SSR hydration mismatch
+  useEffect(() => {
+    try {
+      const session = getSession();
+      if (session) {
+        if (session.orgName) setStartupName(session.orgName);
+        if (session.dpiitNumber) setDpiitNumber(session.dpiitNumber);
+      }
+
+      const saved = localStorage.getItem("samarth_startup_profile");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.startupName) setStartupName(parsed.startupName);
+        if (parsed.dpiitNumber) setDpiitNumber(parsed.dpiitNumber);
+        if (parsed.turnoverBand) setTurnoverBand(parsed.turnoverBand);
+        if (parsed.location) setLocation(parsed.location);
+        if (parsed.incorporationYear) setIncorporationYear(parsed.incorporationYear);
+        if (parsed.description) setDescription(parsed.description);
+        if (Array.isArray(parsed.tags)) setTags(parsed.tags);
+        if (parsed.extractedSummary) setExtractedSummary(parsed.extractedSummary);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, []);
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -57,13 +83,42 @@ export default function StartupProfilePage() {
       setExtractedSummary(res.summary);
     } finally {
       setIsExtracting(false);
+      e.target.value = "";
     }
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+
+    try {
+      const session = getSession();
+      if (session) {
+        setSession({
+          ...session,
+          orgName: startupName,
+          dpiitNumber: dpiitNumber,
+        });
+      }
+
+      localStorage.setItem(
+        "samarth_startup_profile",
+        JSON.stringify({
+          startupName,
+          dpiitNumber,
+          turnoverBand,
+          location,
+          incorporationYear,
+          description,
+          tags,
+          extractedSummary,
+        })
+      );
+
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch {
+      setSavedSuccess(false);
+    }
   };
 
   return (
@@ -107,7 +162,7 @@ export default function StartupProfilePage() {
               label="DPIIT Recognition Number"
               value={dpiitNumber}
               onChange={(e) => setDpiitNumber(e.target.value)}
-              helperText="Enables automatic GFR Rule 149 exemption from prior turnover"
+              helperText="Enables automatic GFR Rule 194 exemption from prior turnover"
               required
             />
 
@@ -128,6 +183,15 @@ export default function StartupProfilePage() {
               label="Registered Location"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
+              required
+            />
+
+            <Input
+              label="Year of Incorporation"
+              type="number"
+              value={incorporationYear}
+              onChange={(e) => setIncorporationYear(e.target.value)}
+              helperText="Entities eligible under DPIIT within 10 years of incorporation"
               required
             />
           </div>

@@ -40,12 +40,12 @@ export const Dialog: React.FC<DialogProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-200"
+        className="fixed inset-0 bg-black/50 transition-opacity duration-200"
         onClick={onClose}
       />
 
       <div
-        className={`relative w-full ${maxWidthClass} bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] shadow-2xl p-6 z-10`}
+        className={`relative w-full ${maxWidthClass} bg-[var(--surface-raised)] border border-[var(--line)] rounded-[12px] shadow-2xl p-6 z-10`}
       >
         <div className="flex items-start justify-between border-b border-[var(--line)] pb-3 mb-4">
           <div>

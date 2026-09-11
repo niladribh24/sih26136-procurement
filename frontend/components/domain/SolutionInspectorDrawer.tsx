@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ShieldCheck,
   CheckCircle2,
+  AlertTriangle,
   Sparkles,
   Sliders,
   FileText,
@@ -35,11 +36,22 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
   const [showPilotSetup, setShowPilotSetup] = useState(false);
 
   // Evaluator Rubric State
-  const [techMerit, setTechMerit] = useState(solution?.rubricScore?.technicalMerit || 28);
-  const [costRealism, setCostRealism] = useState(solution?.rubricScore?.costRealism || 18);
-  const [teamCap, setTeamCap] = useState(solution?.rubricScore?.teamCapability || 19);
-  const [timelineViab, setTimelineViab] = useState(solution?.rubricScore?.timelineViability || 27);
+  const [techMerit, setTechMerit] = useState(28);
+  const [costRealism, setCostRealism] = useState(18);
+  const [teamCap, setTeamCap] = useState(19);
+  const [timelineViab, setTimelineViab] = useState(27);
   const [savedRubric, setSavedRubric] = useState(false);
+
+  useEffect(() => {
+    if (solution) {
+      setTechMerit(solution.rubricScore?.technicalMerit ?? 28);
+      setCostRealism(solution.rubricScore?.costRealism ?? 18);
+      setTeamCap(solution.rubricScore?.teamCapability ?? 19);
+      setTimelineViab(solution.rubricScore?.timelineViability ?? 27);
+      setShowPilotSetup(false);
+      setSavedRubric(false);
+    }
+  }, [solution?.id]);
 
   if (!solution) return null;
 
@@ -68,26 +80,33 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
         {/* Top Summary Banner */}
         <div className="p-4 bg-[var(--surface)] border border-[var(--line)] rounded-[8px] flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-bold text-[var(--ink)]">
                 {solution.title}
               </span>
-              <Badge variant="dpiit_verified">
-                <ShieldCheck className="w-3 h-3 mr-1" />
-                DPIIT VERIFIED
-              </Badge>
+              {solution.dpiitVerified ? (
+                <Badge variant="dpiit_verified">
+                  <ShieldCheck className="w-3 h-3 mr-1" />
+                  DPIIT: {solution.dpiitNumber}
+                </Badge>
+              ) : (
+                <Badge variant="warning">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  DPIIT: PENDING
+                </Badge>
+              )}
             </div>
             <div className="text-xs font-mono-data text-[var(--ink-muted)] mt-1">
-              Proposed Budget: ₹{(solution.proposedCost / 100000).toFixed(1)}L · Duration: {solution.proposedDurationWeeks} Weeks · {solution.claimedTRL}
+              Proposed Budget: {solution.proposedCost ? `₹${(solution.proposedCost / 100000).toFixed(1)}L` : "TBD"} · Duration: {solution.proposedDurationWeeks || 8} Weeks · {solution.claimedTRL || "TRL 6"}
             </div>
           </div>
 
-          <div className="text-right">
+          <div className="text-right shrink-0">
             <span className="text-xs font-mono-data text-[var(--ink-muted)] block">
               Cosine Similarity
             </span>
             <span className="text-base font-bold font-mono-data text-[var(--highlight)]">
-              {Math.round(solution.matchScore * 100)}% Match
+              {Math.round((solution.matchScore || 0) * 100)}% Match
             </span>
           </div>
         </div>

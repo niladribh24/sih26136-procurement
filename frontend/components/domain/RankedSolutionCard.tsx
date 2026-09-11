@@ -21,7 +21,7 @@ export const RankedSolutionCard: React.FC<RankedSolutionCardProps> = ({
   onShortlist,
   isShortlisted = false,
 }) => {
-  const matchPct = Math.round(solution.matchScore * 100);
+  const matchPct = Math.round((solution.matchScore || 0) * 100);
 
   return (
     <div className="p-6 bg-[var(--surface-raised)] border border-[var(--line)] hover:border-[var(--line-strong)] rounded-[8px] space-y-4 shadow-2xs transition-all">
@@ -62,9 +62,9 @@ export const RankedSolutionCard: React.FC<RankedSolutionCardProps> = ({
           </div>
           <div className="text-right text-xs font-mono-data mt-1">
             <span className="font-bold text-[var(--ink)]">
-              ₹{(solution.proposedCost / 100000).toFixed(1)}L
+              {solution.proposedCost ? `₹${(solution.proposedCost / 100000).toFixed(1)}L` : "Budget TBD"}
             </span>
-            <span className="text-[var(--ink-muted)]"> · {solution.claimedTRL}</span>
+            <span className="text-[var(--ink-muted)]"> · {solution.claimedTRL || "TRL 6"}</span>
           </div>
         </div>
       </div>
@@ -99,9 +99,9 @@ export const RankedSolutionCard: React.FC<RankedSolutionCardProps> = ({
       {/* Action Footer */}
       <div className="flex items-center justify-between pt-3 border-t border-[var(--line)] text-xs">
         <span className="text-[11px] font-mono-data text-[var(--ink-muted)]">
-          Proposed Timeline: {solution.proposedDurationWeeks} Weeks · Rubric Score:{" "}
+          Proposed Timeline: {solution.proposedDurationWeeks || 8} Weeks · Rubric Score:{" "}
           <strong className="text-[var(--ink)]">
-            {solution.rubricScore ? `${solution.rubricScore.total}/100` : "88/100"}
+            {solution.rubricScore ? `${solution.rubricScore.total}/100` : "Pending Evaluation"}
           </strong>
         </span>
 

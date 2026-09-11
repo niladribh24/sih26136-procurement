@@ -22,9 +22,15 @@ export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
 }) => {
   const router = useRouter();
 
-  const [durationWeeks, setDurationWeeks] = useState(solution.proposedDurationWeeks.toString() || "8");
-  const [totalBudget, setTotalBudget] = useState(solution.proposedCost.toString() || "2850000");
-  const [independentValidator, setIndependentValidator] = useState("Prof. K. Rao (Aerospace, IIT Delhi)");
+  const [durationWeeks, setDurationWeeks] = useState(
+    solution?.proposedDurationWeeks?.toString() || "8"
+  );
+  const [totalBudget, setTotalBudget] = useState(
+    solution?.proposedCost?.toString() || "2850000"
+  );
+  const [independentValidator, setIndependentValidator] = useState(
+    "Prof. K. Rao (Aerospace, IIT Delhi)"
+  );
   const [isLaunching, setIsLaunching] = useState(false);
 
   const [milestones, setMilestones] = useState([
@@ -88,8 +94,9 @@ export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
         })),
       });
 
-      // Update solution status
+      // Update solution status in memory and storage
       solution.status = "shortlisted";
+      await api.updateSolutionStatus(solution.id, "shortlisted");
       onClose();
       router.push(`/gov/pilots/${createdPilot.id}`);
     } finally {

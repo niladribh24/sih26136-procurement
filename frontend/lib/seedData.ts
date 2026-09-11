@@ -1,4 +1,4 @@
-import { Problem, Solution, Pilot, ReplicationRequest } from "./types";
+import { Problem, Solution, Pilot, ReplicationRequest, ScaleSolution } from "./types";
 
 export const SEED_PROBLEMS: Problem[] = [
   {
@@ -180,6 +180,8 @@ export const SEED_PILOTS: Pilot[] = [
     startDate: "2026-09-15",
     totalBudget: 2850000,
     performanceScore: 94.2,
+    dpiitVerified: true,
+    sanctionOrderRef: "SANCTION-ICAR-2026-081",
     milestones: [
       {
         id: "m-01",
@@ -195,10 +197,13 @@ export const SEED_PILOTS: Pilot[] = [
         trancheAmount: 855000,
         tranchePercentage: 30,
         status: "verified",
+        trancheDisbursed: true,
+        disbursedAt: "2026-09-30",
         verifiedBy: "Prof. K. Rao (IIT Delhi)",
         verifiedAt: "2026-09-29 16:30 IST",
         verificationRemarks:
           "Optical latency benchmark verified on hardware oscilloscope. All timestamp synchronization criteria met without deviation.",
+        verificationReportUrl: "/reports/IITD-ICAR-Bench-Validation-01.pdf",
       },
       {
         id: "m-02",
@@ -214,6 +219,7 @@ export const SEED_PILOTS: Pilot[] = [
         trancheAmount: 1140000,
         tranchePercentage: 40,
         status: "submitted",
+        trancheDisbursed: false,
       },
       {
         id: "m-03",
@@ -227,16 +233,18 @@ export const SEED_PILOTS: Pilot[] = [
         trancheAmount: 855000,
         tranchePercentage: 30,
         status: "pending",
+        trancheDisbursed: false,
       },
     ],
   },
 ];
 
-export const SEED_SCALE_SOLUTIONS = [
+export const SEED_SCALE_SOLUTIONS: ScaleSolution[] = [
   {
     id: "scale-01",
     pilotCode: "PLT-2025-084",
     title: "Intelligent Acoustic Sensor Mesh for Wild Elephant Herd Early Warning",
+    domain: "CleanTech",
     startupName: "VanaRakshak AI Systems Pvt Ltd",
     dpiitNumber: "DIPP51280",
     originatingDepartment: "Department of Environment & Forests, Govt of Assam",
@@ -244,14 +252,16 @@ export const SEED_SCALE_SOLUTIONS = [
     performanceScore: 96.8,
     deployedUnits: 45,
     budgetPerUnit: "₹1,80,000",
+    totalBudget: 8100000,
     summary:
       "Solar-powered acoustic nodes deployed along railway corridors in Kaziranga. Accurately detected elephant herd trumpet and footstep vibrations 800m ahead of tracks, cutting train-wildlife collisions to zero in the trial division.",
-    gfrExemptionClause: "GFR 149 (ii) Validated Innovation Direct Requisition",
+    gfrExemptionClause: "GFR Rule 194 / 149 (Startup Innovation Direct Requisition)",
   },
   {
     id: "scale-02",
     pilotCode: "PLT-2026-003",
     title: "AI Edge Diagnostic Spirometer for Primary Health Centres",
+    domain: "HealthTech",
     startupName: "ShwasTech Medical Devices Pvt Ltd",
     dpiitNumber: "DIPP63194",
     originatingDepartment: "Department of Health & Family Welfare, Govt of Odisha",
@@ -259,9 +269,27 @@ export const SEED_SCALE_SOLUTIONS = [
     performanceScore: 93.5,
     deployedUnits: 120,
     budgetPerUnit: "₹45,000",
+    totalBudget: 5400000,
     summary:
       "Handheld digital spirometer with offline edge diagnosis for COPD and pulmonary fibrosis. Tested on 4,200 rural patients across Mayurbhanj district with 94.1% physician concurrence.",
-    gfrExemptionClause: "GFR 149 (ii) Validated Innovation Direct Requisition",
+    gfrExemptionClause: "GFR Rule 194 / 149 (Startup Innovation Direct Requisition)",
+  },
+  {
+    id: "scale-03",
+    pilotCode: "PLT-2026-081",
+    title: "Autonomous Multispectral Crop Health & Weed Mapping UAV",
+    domain: "AgriTech",
+    startupName: "AeroKisan Technologies Pvt Ltd",
+    dpiitNumber: "DIPP98234",
+    originatingDepartment: "Indian Council of Agricultural Research (ICAR)",
+    validationDate: "2026-08-10",
+    performanceScore: 94.2,
+    deployedUnits: 25,
+    budgetPerUnit: "₹1,14,000",
+    totalBudget: 2850000,
+    summary:
+      "Dual-spectrum optical drone system delivering real-time nitrogen deficiency and sub-canopy weed stress maps with 94.2% ground truth accuracy across agricultural trials.",
+    gfrExemptionClause: "GFR Rule 194 / 149 (Startup Innovation Direct Requisition)",
   },
 ];
 
@@ -277,6 +305,8 @@ export const SEED_REPLICATION_REQUESTS: ReplicationRequest[] = [
     requestingOfficerEmail: "ccf.coimbatore@tn.gov.in",
     targetDeploymentSite: "Coimbatore-Palakkad Railway Line",
     targetQuantity: 30,
+    targetBudget: 5400000,
+    deploymentTimelineWeeks: 12,
     requestedAt: "2026-08-14",
     status: "approved",
   },

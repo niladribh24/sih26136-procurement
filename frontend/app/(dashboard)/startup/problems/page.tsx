@@ -18,14 +18,16 @@ export default function StartupProblemBrowserPage() {
     api.getProblems().then(setProblems);
   }, []);
 
-  const domains = ["all", "DroneTech", "AgriTech", "Defence", "HealthTech", "CleanTech"];
+  const domains = ["all", "DroneTech", "AgriTech", "Defence", "HealthTech", "CleanTech", "GovTech"];
 
   const filtered = problems.filter((p) => {
     const matchDomain = selectedDomain === "all" || p.domain === selectedDomain;
+    const query = searchQuery.trim().toLowerCase();
     const matchQuery =
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.code.toLowerCase().includes(searchQuery.toLowerCase());
+      !query ||
+      (p.title?.toLowerCase().includes(query) ?? false) ||
+      (p.description?.toLowerCase().includes(query) ?? false) ||
+      (p.code?.toLowerCase().includes(query) ?? false);
     return matchDomain && matchQuery;
   });
 
@@ -84,6 +86,9 @@ export default function StartupProblemBrowserPage() {
                     {problem.code}
                   </span>
                   <Badge variant="info">{problem.domain}</Badge>
+                  <Badge variant={problem.status === "open" ? "positive" : problem.status === "pilot_active" ? "highlight" : "warning"}>
+                    {problem.status.replace("_", " ").toUpperCase()}
+                  </Badge>
                   <span className="text-xs font-mono-data text-[var(--ink-muted)]">
                     {problem.department}
                   </span>

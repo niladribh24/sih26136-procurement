@@ -83,25 +83,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
 
   const links = role === "startup" ? startupLinks : govLinks;
 
+  const getRoleLabel = () => {
+    if (role === "startup") return "Startup Workspace";
+    if (role === "evaluator") return "Technical Evaluator";
+    return "Government Authority";
+  };
+
   return (
-    <aside className="w-64 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] min-h-[calc(100vh-4rem)] p-4 flex flex-col justify-between">
+    <aside className="hidden md:flex w-64 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] min-h-[calc(100vh-4rem)] p-4 flex-col justify-between print:hidden">
       <div className="space-y-6">
         <div>
           <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--ink-muted)] px-3">
-            {role === "startup" ? "Startup Workspace" : "Government Authority"}
+            {getRoleLabel()}
           </span>
           <nav className="mt-2 space-y-1">
             {links.map((link) => {
               const Icon = link.icon;
               const isActive =
-                pathname === link.href || pathname.startsWith(`${link.href}/`);
+                pathname === link.href ||
+                (link.href === "/gov/problems"
+                  ? pathname.startsWith("/gov/problems/") && !pathname.startsWith("/gov/problems/new")
+                  : pathname.startsWith(`${link.href}/`));
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-[6px] text-xs font-medium transition-colors duration-150 ${
                     isActive
-                      ? "bg-[var(--accent-soft)] text-[var(--accent)] font-semibold border-l-3 border-[var(--accent)]"
+                      ? "bg-[var(--accent-soft)] text-[var(--accent)] font-semibold border-l-[3px] border-[var(--accent)]"
                       : "text-[var(--ink-secondary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--ink)]"
                   }`}
                 >

@@ -15,15 +15,26 @@ function LoginForm() {
   const redirectPath = searchParams.get("redirect");
   const authError = searchParams.get("error");
 
-  const [selectedRole, setSelectedRole] = useState<"startup" | "govt_officer">("govt_officer");
+  const [selectedRole, setSelectedRole] = useState<UserRole>("govt_officer");
   const [email, setEmail] = useState("sharma.icar@gov.in");
   const [password, setPassword] = useState("••••••••••••");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleRoleTabChange = (role: "startup" | "govt_officer") => {
+  const isSafeRedirect = (url: string | null): boolean =>
+    Boolean(url && url.startsWith("/") && !url.startsWith("//") && !url.includes(":"));
+
+  const isPathAllowedForRole = (path: string, role: string): boolean => {
+    if (role === "startup") return path.startsWith("/startup");
+    if (role === "govt_officer" || role === "evaluator" || role === "admin") return path.startsWith("/gov");
+    return false;
+  };
+
+  const handleRoleTabChange = (role: UserRole) => {
     setSelectedRole(role);
     if (role === "startup") {
       setEmail("vikram@aerokisan.tech");
+    } else if (role === "evaluator") {
+      setEmail("krao@iitd.ac.in");
     } else {
       setEmail("sharma.icar@gov.in");
     }
@@ -32,7 +43,7 @@ function LoginForm() {
   const handleAutofillPersona = (personaId: string) => {
     const persona = DEMO_PERSONAS.find((p) => p.id === personaId);
     if (!persona) return;
-    setSelectedRole(persona.role === "startup" ? "startup" : "govt_officer");
+    setSelectedRole(persona.role);
     setEmail(persona.email);
     setPassword("samarth-demo-2026");
     handleSubmit(persona);
@@ -51,7 +62,7 @@ function LoginForm() {
 
     setSession(targetPersona);
 
-    if (redirectPath) {
+    if (redirectPath && isSafeRedirect(redirectPath) && isPathAllowedForRole(redirectPath, targetPersona.role)) {
       router.push(redirectPath);
     } else if (targetPersona.role === "startup") {
       router.push("/startup/problems");
@@ -59,6 +70,15 @@ function LoginForm() {
       router.push("/gov/problems");
     }
   };
+
+  const getErrorMessage = (err: string | null) => {
+    if (err === "startup_role_required") return "Access denied: The requested page requires a verified Startup account.";
+    if (err === "gov_role_required") return "Access denied: The requested page requires an authorized Government Officer / Evaluator account.";
+    if (err) return "Authentication required: Please sign in to access this workspace.";
+    return null;
+  };
+
+  const displayedAuthError = getErrorMessage(authError);
 
   return (
     <div className="space-y-6">
@@ -71,43 +91,51 @@ function LoginForm() {
         </p>
       </div>
 
-      {authError && (
+      {displayedAuthError && (
         <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] flex items-start gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            {authError === "startup_role_required"
-              ? "Access denied: The requested page requires a verified Startup account."
-              : "Access denied: The requested page requires an authorized Government Officer account."}
-          </span>
+          <span>{displayedAuthError}</span>
         </div>
       )}
 
       {/* Role Selection Tabs */}
-      <div className="grid grid-cols-2 p-1 bg-[var(--surface)] border border-[var(--line)] rounded-[6px]">
+      <div className="grid grid-cols-3 p-1 bg-[var(--surface)] border border-[var(--line)] rounded-[6px] text-center">
         <button
           type="button"
           onClick={() => handleRoleTabChange("govt_officer")}
-          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1 cursor-pointer ${
             selectedRole === "govt_officer"
               ? "bg-[var(--accent)] text-white font-semibold shadow-xs"
               : "text-[var(--ink-secondary)] hover:text-[var(--ink)]"
           }`}
         >
           <Building2 className="w-3.5 h-3.5" />
-          <span>Government Officer</span>
+          <span>Govt Officer</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleRoleTabChange("startup")}
-          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1 cursor-pointer ${
             selectedRole === "startup"
               ? "bg-[var(--accent)] text-white font-semibold shadow-xs"
               : "text-[var(--ink-secondary)] hover:text-[var(--ink)]"
           }`}
         >
           <Rocket className="w-3.5 h-3.5" />
-          <span>Startup Bidder</span>
+          <span>Startup</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleRoleTabChange("evaluator")}
+          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1 cursor-pointer ${
+            selectedRole === "evaluator"
+              ? "bg-[var(--accent)] text-white font-semibold shadow-xs"
+              : "text-[var(--ink-secondary)] hover:text-[var(--ink)]"
+          }`}
+        >
+          <span>Evaluator</span>
         </button>
       </div>
 
@@ -174,6 +202,20 @@ function LoginForm() {
               <div className="text-[10px] text-[var(--ink-muted)]">AeroKisan Tech (DPIIT Verified)</div>
             </div>
             <span className="text-[10px] font-mono-data text-[var(--highlight)] font-semibold">
+              Enter Portal →
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleAutofillPersona("user-eval-01")}
+            className="w-full text-left p-2 rounded-[6px] border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-subtle)] text-xs flex items-center justify-between transition-colors cursor-pointer"
+          >
+            <div>
+              <div className="font-semibold text-[var(--ink)]">Prof. K. Rao</div>
+              <div className="text-[10px] text-[var(--ink-muted)]">IIT Delhi Technical Evaluator</div>
+            </div>
+            <span className="text-[10px] font-mono-data text-[#6D28D9] font-semibold">
               Enter Portal →
             </span>
           </button>

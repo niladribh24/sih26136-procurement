@@ -37,6 +37,8 @@ export const MilestoneCard: React.FC<MilestoneCardProps> = ({
               variant={
                 milestone.status === "verified"
                   ? "positive"
+                  : milestone.status === "failed"
+                  ? "danger"
                   : milestone.status === "submitted"
                   ? "warning"
                   : "default"
@@ -95,10 +97,38 @@ export const MilestoneCard: React.FC<MilestoneCardProps> = ({
       {/* Verification Audit Stamp */}
       {milestone.status === "verified" && (
         <div className="p-3 bg-[var(--positive-soft)] border border-[var(--positive)]/30 rounded-[6px] text-xs text-[var(--positive)] space-y-1">
+          <div className="flex items-center justify-between font-bold font-mono-data">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4" />
+              <span>
+                Verified by {milestone.verifiedBy || "Independent Technical Validator"} ({milestone.verifiedAt || "Audited"})
+              </span>
+            </div>
+            {milestone.trancheDisbursed ? (
+              <span className="text-[10px] uppercase bg-[var(--positive)] text-white px-2 py-0.5 rounded font-mono-data">
+                Tranche Disbursed
+              </span>
+            ) : (
+              <span className="text-[10px] uppercase bg-[var(--positive)]/20 text-[var(--positive)] px-2 py-0.5 rounded font-mono-data">
+                Tranche Authorized
+              </span>
+            )}
+          </div>
+          {milestone.verificationRemarks && (
+            <p className="text-[11px] leading-relaxed pl-5.5">
+              &quot;{milestone.verificationRemarks}&quot;
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Discrepancy / Failed Audit Banner */}
+      {milestone.status === "failed" && (
+        <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] space-y-1">
           <div className="flex items-center gap-1.5 font-bold font-mono-data">
-            <ShieldCheck className="w-4 h-4" />
+            <AlertCircle className="w-4 h-4" />
             <span>
-              Verified by {milestone.verifiedBy} ({milestone.verifiedAt})
+              Audit Discrepancy Flagged by {milestone.verifiedBy || "Validator"} ({milestone.verifiedAt || "Rejected"})
             </span>
           </div>
           {milestone.verificationRemarks && (
@@ -111,15 +141,21 @@ export const MilestoneCard: React.FC<MilestoneCardProps> = ({
 
       {/* Action Bar */}
       <div className="flex items-center justify-between pt-3 border-t border-[var(--line)] text-xs">
-        <span className="text-[11px] font-mono-data text-[var(--ink-muted)]">
+        <div className="text-[11px] font-mono-data text-[var(--ink-muted)]">
           {milestone.deliverableFileUrl ? (
-            <span className="text-[var(--accent)] underline cursor-pointer">
-              {milestone.deliverableFileUrl}
-            </span>
+            <a
+              href={milestone.deliverableFileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--accent)] underline hover:text-[var(--accent-hover)] inline-flex items-center gap-1"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>{milestone.deliverableFileUrl}</span>
+            </a>
           ) : (
-            "Awaiting file upload"
+            <span>Awaiting deliverable file upload</span>
           )}
-        </span>
+        </div>
 
         {milestone.status !== "verified" && canVerify && (
           <Button
@@ -130,7 +166,9 @@ export const MilestoneCard: React.FC<MilestoneCardProps> = ({
             <FileCheck className="w-3.5 h-3.5" />
             <span>
               {milestone.status === "submitted"
-                ? "Verify Deliverable & Release Tranche"
+                ? "Verify Deliverable & Authorize Tranche"
+                : milestone.status === "failed"
+                ? "Re-evaluate Corrected Deliverable"
                 : "Record Pre-Verification Audit"}
             </span>
           </Button>

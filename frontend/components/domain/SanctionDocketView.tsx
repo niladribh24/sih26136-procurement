@@ -26,6 +26,12 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
   const [transmitting, setTransmitting] = useState(false);
 
   const sanctionOrderRef = `GOI/PROC/2026/${pilot.code.replace("PLT-2026-", "")}0491`;
+  const verifiedMilestonesCount = pilot.milestones.filter((m) => m.status === "verified").length;
+  const totalMilestonesCount = pilot.milestones.length;
+  const isAllVerified = totalMilestonesCount > 0 && verifiedMilestonesCount === totalMilestonesCount;
+  const totalBudgetFormatted = pilot.totalBudget ? `₹${pilot.totalBudget.toLocaleString("en-IN")}` : "₹28,50,000";
+  const budgetInLakhs = ((pilot.totalBudget || 2850000) / 100000).toFixed(2);
+  const auditHash = ((pilot.code || "") + (pilot.id || "samarth")).slice(-8);
 
   const handleTransmitGeM = async () => {
     setTransmitting(true);
@@ -44,7 +50,7 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
   return (
     <div className="space-y-6">
       {/* Sovereign Sanction Order Dossier */}
-      <div className="p-8 bg-white border border-[var(--line-strong)] rounded-[4px] shadow-sm space-y-8 print:border-none print:shadow-none font-editorial">
+      <div className="p-8 bg-white border border-[var(--line-strong)] rounded-[4px] shadow-sm space-y-8 print:border-none print:shadow-none print:p-0 font-editorial">
         {/* Header Letterhead */}
         <div className="text-center border-b-2 border-[var(--ink)] pb-6 space-y-2">
           <div className="w-12 h-12 rounded-full border border-[var(--ink)] mx-auto flex items-center justify-center font-mono-data text-xs font-bold text-[var(--accent)]">
@@ -57,7 +63,7 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
             Official Innovation Sanction Memorandum
           </h1>
           <div className="text-xs font-mono-data text-[var(--ink-secondary)]">
-            Under General Financial Rules (GFR 2017) Rule 149 · Startup Innovation Procurement
+            Under General Financial Rules (GFR 2017) Rule 149 & Rule 194 · Startup Innovation Direct Procurement
           </div>
           <div className="flex justify-between items-center pt-3 text-xs font-mono-data text-[var(--ink-muted)] border-t border-[var(--line)]">
             <span>Sanction Order Ref: <strong>{sanctionOrderRef}</strong></span>
@@ -90,7 +96,7 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
         {/* Section 2: Pilot Trial Performance Audit */}
         <div className="space-y-3 text-xs font-sans">
           <h2 className="text-xs font-mono-data uppercase tracking-wider text-[var(--ink-muted)] font-bold border-b border-[var(--line)] pb-1">
-            2. Field Pilot Trial Performance Audit
+            2. Field Pilot Trial Performance Audit & Tranche Schedule
           </h2>
           <div className="grid grid-cols-3 gap-3 p-4 bg-[var(--surface)] border border-[var(--line)] rounded-[4px]">
             <div>
@@ -107,10 +113,10 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
                 Milestones Verified
               </span>
               <strong className="text-[var(--positive)] font-mono-data">
-                {pilot.milestones.length} of {pilot.milestones.length} Passed
+                {verifiedMilestonesCount} of {totalMilestonesCount} Passed
               </strong>
               <div className="text-[10px] text-[var(--ink-muted)] mt-0.5">
-                100% KPI Completion
+                {isAllVerified ? "100% KPI Completion" : "Trial in progress"}
               </div>
             </div>
             <div>
@@ -125,6 +131,52 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
               </div>
             </div>
           </div>
+
+          {/* Tabular Tranche Schedule */}
+          <div className="overflow-x-auto border border-[var(--line)] rounded-[4px]">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[var(--surface-subtle)] border-b border-[var(--line)] font-mono-data text-[10px] text-[var(--ink-muted)] uppercase">
+                <tr>
+                  <th className="py-2 px-3">M#</th>
+                  <th className="py-2 px-3">Milestone Deliverable</th>
+                  <th className="py-2 px-3">Target KPI</th>
+                  <th className="py-2 px-3 text-right">Tranche</th>
+                  <th className="py-2 px-3 text-right">Amount (₹)</th>
+                  <th className="py-2 px-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--line)] font-sans">
+                {pilot.milestones.map((m) => (
+                  <tr key={m.id} className="text-[11px]">
+                    <td className="py-2 px-3 font-mono-data font-bold text-[var(--accent)]">
+                      M{m.sequence}
+                    </td>
+                    <td className="py-2 px-3 font-medium text-[var(--ink)]">
+                      {m.title}
+                    </td>
+                    <td className="py-2 px-3 font-mono-data text-[var(--ink-secondary)]">
+                      {m.targetKPI}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono-data text-[var(--ink)]">
+                      {m.tranchePercentage}%
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono-data font-bold text-[var(--ink)]">
+                      ₹{(m.trancheAmount).toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono-data font-semibold ${
+                        m.status === "verified"
+                          ? "bg-[var(--positive-soft)] text-[var(--positive)]"
+                          : "bg-[var(--surface)] text-[var(--ink-muted)]"
+                      }`}>
+                        {m.status.toUpperCase()}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Section 3: Statutory Exemptions */}
@@ -137,10 +189,10 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
               <CheckCircle2 className="w-4 h-4 text-[var(--positive)] shrink-0 mt-0.5" />
               <div>
                 <strong className="text-[var(--ink)]">
-                  GFR 2017 Rule 149 Special Exemption for Field-Validated Innovations:
+                  GFR 2017 Rule 149 & Rule 194 Special Exemption for Field-Validated Innovations:
                 </strong>
                 <p className="text-[11px] text-[var(--ink-secondary)] mt-0.5 leading-relaxed">
-                  The subject innovation has completed rigorous milestone validation under an authorized government pilot trial, satisfying statutory requirements for direct public procurement.
+                  The subject innovation has completed rigorous milestone validation under an authorized government pilot trial, satisfying statutory requirements for direct public procurement without requirement of prior tender notification.
                 </p>
               </div>
             </div>
@@ -167,19 +219,19 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
           <div className="p-4 bg-[var(--surface-subtle)] border border-[var(--line)] rounded-[4px] flex items-center justify-between">
             <div>
               <span className="text-[11px] font-mono-data text-[var(--ink-muted)] uppercase block">
-                Total Recommended Procurement Value:
+                Total Authorized Innovation Sanction Value:
               </span>
               <div className="text-2xl font-bold font-mono-data text-[var(--accent)] mt-0.5">
-                ₹42,50,000
+                {totalBudgetFormatted}
               </div>
-              <span className="text-[11px] text-[var(--ink-secondary)]">
-                (Forty-Two Lakhs Fifty Thousand Rupees Only)
+              <span className="text-[11px] text-[var(--ink-secondary)] font-mono-data">
+                (Rupees {budgetInLakhs} Lakhs Only)
               </span>
             </div>
             <div className="text-right text-xs font-mono-data space-y-1">
-              <div>Scope: Initial Deployment of 10 Systems</div>
+              <div>Scope: Initial Deployment & Full Field Operations</div>
               <div>Delivery Schedule: 60 Days from GeM Order</div>
-              <div>Warranty & Maintenance: 24 Months SLA</div>
+              <div>Warranty & Maintenance: 24 Months Comprehensive SLA</div>
             </div>
           </div>
         </div>
@@ -191,13 +243,13 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
               {pilot.leadOfficerName}
             </div>
             <div className="text-[11px] text-[var(--ink-muted)]">
-              Competent Sanctioning Authority · ICAR / DMA
+              Competent Sanctioning Authority · {pilot.department}
             </div>
             <AuditStamp
-              actorName="Dr. A. Sharma"
-              actorRole="Director"
-              timestamp="2026-10-18 14:32 IST"
-              hash="9f8a2b1c"
+              actorName={pilot.leadOfficerName.split("(")[0].trim()}
+              actorRole="Competent Sanctioning Officer"
+              timestamp={new Date().toISOString().replace("T", " ").slice(0, 16) + " IST"}
+              hash={auditHash}
               className="mt-2"
             />
           </div>
@@ -217,7 +269,7 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
       </div>
 
       {/* Action Bar (Print / PDF / GeM Simulation) */}
-      <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs">
+      <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs print:hidden">
         <div className="flex items-center gap-2 text-xs">
           <Button variant="secondary" size="md" onClick={handlePrint}>
             <Printer className="w-4 h-4" />

@@ -18,18 +18,29 @@ export default function SignupPage() {
   const [dpiitNumber, setDpiitNumber] = useState("");
   const [department, setDepartment] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg("");
+
+    const cleanDpiit = dpiitNumber.trim().toUpperCase();
+    if (role === "startup") {
+      const DPIIT_REGEX = /^(DIPP|DPIIT)\d{5}$/i;
+      if (!cleanDpiit || !DPIIT_REGEX.test(cleanDpiit)) {
+        setErrorMsg("Please enter a valid DPIIT recognition number (e.g. DIPP84920 or DPIIT12345).");
+        return;
+      }
+    }
 
     const newSession: UserSession = {
       id: `user-${Date.now()}`,
-      name: name || (role === "startup" ? "New Founder" : "New Officer"),
-      email: email || "user@samarth.gov.in",
+      name: name.trim() || (role === "startup" ? "New Founder" : "New Officer"),
+      email: email.trim(),
       role,
-      orgName: orgName || (role === "startup" ? "Innovate Technologies" : "Ministry of Commerce"),
-      dpiitNumber: role === "startup" ? dpiitNumber || "DIPP12345" : undefined,
-      department: role === "govt_officer" ? department || "Procurement Cell" : undefined,
+      orgName: orgName.trim(),
+      dpiitNumber: role === "startup" ? cleanDpiit : undefined,
+      department: role === "govt_officer" || role === "evaluator" ? department.trim() : undefined,
       token: `jwt-${Date.now()}`,
     };
 
@@ -53,32 +64,50 @@ export default function SignupPage() {
         </p>
       </div>
 
+      {errorMsg && (
+        <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)]">
+          {errorMsg}
+        </div>
+      )}
+
       {/* Role Selection Tabs */}
-      <div className="grid grid-cols-2 p-1 bg-[var(--surface)] border border-[var(--line)] rounded-[6px]">
+      <div className="grid grid-cols-3 p-1 bg-[var(--surface)] border border-[var(--line)] rounded-[6px] text-center">
         <button
           type="button"
           onClick={() => setRole("startup")}
-          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1 cursor-pointer ${
             role === "startup"
               ? "bg-[var(--accent)] text-white font-semibold shadow-xs"
               : "text-[var(--ink-secondary)] hover:text-[var(--ink)]"
           }`}
         >
           <Rocket className="w-3.5 h-3.5" />
-          <span>Startup Entity</span>
+          <span>Startup</span>
         </button>
 
         <button
           type="button"
           onClick={() => setRole("govt_officer")}
-          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1 cursor-pointer ${
             role === "govt_officer"
               ? "bg-[var(--accent)] text-white font-semibold shadow-xs"
               : "text-[var(--ink-secondary)] hover:text-[var(--ink)]"
           }`}
         >
           <Building2 className="w-3.5 h-3.5" />
-          <span>Government Officer</span>
+          <span>Govt Officer</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setRole("evaluator")}
+          className={`py-1.5 text-xs font-medium rounded-[4px] transition-colors flex items-center justify-center gap-1 cursor-pointer ${
+            role === "evaluator"
+              ? "bg-[var(--accent)] text-white font-semibold shadow-xs"
+              : "text-[var(--ink-secondary)] hover:text-[var(--ink)]"
+          }`}
+        >
+          <span>Evaluator</span>
         </button>
       </div>
 
@@ -101,8 +130,8 @@ export default function SignupPage() {
         />
 
         <Input
-          label={role === "startup" ? "Startup Legal Entity Name" : "Ministry / Department Name"}
-          placeholder={role === "startup" ? "e.g. Drishti Vision Systems Pvt Ltd" : "e.g. Dept. of Heavy Industry"}
+          label={role === "startup" ? "Startup Legal Entity Name" : "Ministry / Institute / Department Name"}
+          placeholder={role === "startup" ? "e.g. Drishti Vision Systems Pvt Ltd" : "e.g. Dept. of Heavy Industry / IIT Delhi"}
           value={orgName}
           onChange={(e) => setOrgName(e.target.value)}
           required
@@ -114,11 +143,12 @@ export default function SignupPage() {
             placeholder="e.g. DIPP84920"
             value={dpiitNumber}
             onChange={(e) => setDpiitNumber(e.target.value)}
-            helperText="Provides automatic GFR 149 prior turnover exemptions"
+            helperText="Provides automatic GFR 194 prior turnover exemptions"
+            required
           />
         ) : (
           <Input
-            label="Division / Nodal Cell"
+            label="Division / Laboratory / Department"
             placeholder="e.g. Innovation & Technology Acquisition Cell"
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
