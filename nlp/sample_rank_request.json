@@ -1,0 +1,24 @@
+{
+  "problem": {
+    "id": "prob-001",
+    "title": "Sub-Surface Canal Seepage Detection UAVs",
+    "description": "High-loss canal networks require low-altitude multispectral autonomous UAVs capable of detecting invisible sub-surface seepage zones.",
+    "desired_outcome": "Real-time thermal/multispectral mapping with sub-50ms onboard inference delivering geo-tagged leak coordinates within 4 hours.",
+    "domain": "DroneTech",
+    "target_trl": "TRL-6"
+  },
+  "candidates": [
+    {
+      "solution_id": "sol-001",
+      "title": "AeroScan SWIR: Drone-Based Multi-Spectral Seepage Analytics",
+      "abstract": "Turnkey UAV payload combining dual-band SWIR infrared optics with an onboard Jetson Orin Nano edge computer running customized thermal anomaly detection, delivering sub-5cm spatial resolution and encrypted mesh telemetry back to a central server within minutes of flight completion.",
+      "claimed_trl": "TRL-6"
+    },
+    {
+      "solution_id": "sol-002",
+      "title": "AquaSense Satellite SAR Analysis",
+      "abstract": "Orbital Synthetic Aperture Radar data processing platform for quarterly soil moisture estimation, using historical satellite passes to flag likely seepage-prone segments for manual follow-up inspection.",
+      "claimed_trl": "TRL-8"
+    }
+  ]
+}
