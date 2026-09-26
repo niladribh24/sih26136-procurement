@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 1440
     ml_service_url: str = "http://localhost:8001"
     frontend_url: str = "http://localhost:3000"
+    # Uploaded PDFs live here; the DB stores paths relative to it. Gitignored.
+    upload_dir: Path = BACKEND_DIR / "uploads"
 
 
 @lru_cache

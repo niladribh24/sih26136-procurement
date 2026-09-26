@@ -4,7 +4,7 @@ Requires the database to exist with the schema applied: run `python init_db.py` 
 """
 
 import pytest
-from sqlalchemy import inspect, insert
+from sqlalchemy import UniqueConstraint, inspect, insert
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 
@@ -58,7 +58,10 @@ def test_foreign_keys_match(inspector, table_name):
 @pytest.mark.parametrize("table_name", sorted(MODEL_TABLES))
 def test_unique_constraints_match(inspector, table_name):
     db_uniques = {tuple(uc["column_names"]) for uc in inspector.get_unique_constraints(table_name)}
-    model_uniques = {(c.name,) for c in MODEL_TABLES[table_name].columns if c.unique}
+    table = MODEL_TABLES[table_name]
+    model_uniques = {(c.name,) for c in table.columns if c.unique} | {
+        tuple(c.name for c in uc.columns) for uc in table.constraints if isinstance(uc, UniqueConstraint)
+    }
     assert db_uniques == model_uniques
 
 

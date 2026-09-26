@@ -3,11 +3,13 @@ every test is wrapped in a transaction that's rolled back afterwards, so no rows
 """
 
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.database import engine, get_db
 from app.main import app
 
@@ -35,3 +37,10 @@ def client(db: Session) -> Iterator[TestClient]:
             yield c
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture(autouse=True)
+def upload_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Uploads go to a per-test temp folder, never the real backend/uploads/."""
+    monkeypatch.setattr(get_settings(), "upload_dir", tmp_path)
+    return tmp_path

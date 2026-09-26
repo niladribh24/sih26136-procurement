@@ -70,37 +70,105 @@ request and does not rely on the token's `role` claim.
 | 409 | signup with an email that already exists |
 | 422 | request body failed validation (missing role-specific field, bad DPIIT, `role: "admin"`, ...) |
 
+### Conventions for the endpoints below
+- Every endpoint needs `Authorization: Bearer <token>` (401 without one).
+- Bodies are camelCase JSON, except uploads, which are `multipart/form-data`.
+- Optional fields with no value are **omitted** from responses (the TS `?:`), not sent as `null`.
+- Dates (`createdAt`, `submittedAt`, `deadline`, `uploadedAt`) are `YYYY-MM-DD` strings in IST,
+  matching the format the frontend displays as-is.
+- TRL values are `"TRL-3"` … `"TRL-9"` on the wire; the DB stores the bare number.
+- **Government roles** means `govt_officer`, `evaluator` and `admin` (the frontend's `/gov` tree).
+
+**PDF uploads** (startup documents, solution PDFs): field name `file`. Only real PDFs are
+accepted — checked by the file's first bytes (`%PDF-`), not its name or Content-Type.
+Max 10 MB. Files are saved under `backend/uploads/` with a random name; the client's
+filename is only kept for display.
+
+**Errors** (in addition to the auth table above):
+
+| Status | When |
+|---|---|
+| 403 | right role but not *your* resource (editing another officer's problem, changing status on a solution to someone else's problem) |
+| 404 | not found — **also** returned when a startup asks for another startup's solution, so its existence isn't revealed |
+| 409 | a startup submitting a second proposal to the same problem |
+| 413 | uploaded file over 10 MB |
+| 415 | uploaded file isn't a PDF |
+
 ### Startup profile (Module 1)
+There is no `StartupProfile` type in `frontend/lib/types.ts`; this shape follows
+`frontend/app/(dashboard)/startup/profile/page.tsx`. The profile row is created at signup.
 ```
-POST /api/startups/me/profile       { description, dpiit_number, turnover_band }
-POST /api/startups/me/documents     multipart file upload
-     -> backend saves file, calls ML /extract, stores tags/skills/summary on the profile
-GET  /api/startups/me                -> full profile incl. extracted_tags, extracted_skills
-GET  /api/startups/:id                -> public profile view (for govt browsing)
+StartupProfile {
+  userId, startupName, dpiitNumber, dpiitVerified,
+  turnoverBand?, location?, incorporationYear?, description?,
+  tags: string[], skills: string[],          -- empty until the ML /extract phase
+  documents: [{ id, fileName, uploadedAt }]
+}
+
+GET   /api/startups/me                    startup only                 → 200 StartupProfile
+PATCH /api/startups/me                    startup only                 → 200 StartupProfile
+  in:  any of { startupName, dpiitNumber, turnoverBand, location, incorporationYear, description }
+       omitted = unchanged; null clears an optional field
+       startupName → users.org_name (so UserSession.orgName changes too); can't be emptied
+       dpiitNumber → same regex as signup, stored uppercase; changing it resets dpiitVerified to false
+       turnoverBand: "< ₹1Cr" | "₹1Cr–₹5Cr" | "₹5Cr–₹25Cr" | "> ₹25Cr"
+POST  /api/startups/me/documents          startup only, multipart `file` → 201
+  out: { id, fileName, uploadedAt, domain: "", tags: [], summary: "" }
+       the last three are api.ts extractDocumentTags()'s shape — empty until ML /extract is wired in
+GET   /api/startups/me/documents          startup only                 → 200 [{ id, fileName, uploadedAt }]
+GET   /api/startups/:userId               government roles, or the startup itself → 200 StartupProfile
 ```
 
 ### Problems / forum (Module 2)
+Response is `Problem` from `frontend/lib/types.ts` exactly. `code` (e.g. `PRB-2026-081`)
+is assigned by the database; `submissionCount` is counted live; `status` is
+`open | evaluating | pilot_active | completed`.
 ```
-POST /api/problems                  { title, domain, description, desired_outcome, budget_band, trl_expected }
-GET  /api/problems                  -> list, filterable by domain/status
-GET  /api/problems/:id
-POST /api/problems/:id/solutions    { abstract_text } + file upload
-     -> backend saves, calls ML /summarize and /rank, stores ai_summary + match_score + rank_result;
-        then runs the eligibility rule engine automatically (see Module 3) and writes an eligibility_checks row
-GET  /api/problems/:id/solutions    -> ranked list, sorted by match_score desc
-GET  /api/solutions                 -> list, filterable by ?problem_id= and/or ?startup_id=
-GET  /api/solutions/:id
+GET   /api/problems?domain=&status=&mine=true    any logged-in user   → 200 Problem[]  (newest first)
+      mine=true → only problems posted by the caller
+GET   /api/problems/:idOrCode                     any logged-in user   → 200 Problem    (api.ts getProblem)
+POST  /api/problems                               govt_officer         → 201 Problem    (api.ts createProblem)
+  in:  { title, department, ministry, domain, description, desiredOutcome, budgetBand, targetTRL, deadline }
+       domain/budgetBand/targetTRL: the literal unions in types.ts; deadline YYYY-MM-DD, not in the past
+PATCH /api/problems/:idOrCode                     govt_officer, own problems only → 200 Problem
+  in:  any of the create fields, plus status; omitted = unchanged, null rejected
 ```
-`rank_result` (the full ML `/rank` response for that solution) is mapped by the API layer
-into the frontend's flat `matchScore` / `matchExplanation` / `matchedKeywords` fields —
-see `backend/schema.sql`'s `solution_abstracts.rank_result` comment for the exact shape.
+
+### Solutions (Module 2)
+Response is `Solution` from `frontend/lib/types.ts` exactly:
+- `startupId` is the startup's **user id** (the frontend compares it to `session.id`).
+- `startupName` / `dpiitNumber` / `dpiitVerified` / `location` come from the startup's
+  profile at read time — never from the submission.
+- `matchScore` / `matchExplanation` / `matchedKeywords` are mapped from `rank_result`
+  (the ML `/rank` result); until the ML phase they are `0` / `""` / `[]`.
+- `pdfUrl` is `/api/solutions/:id/pdf` (relative to the backend; needs the Bearer header).
+- `rubricScore` is the latest `evaluations` row; omitted if never scored.
+
+**Visibility:** a startup only ever sees its own solutions, on every endpoint below
+(filters can't widen that). Government roles see all.
+```
+POST  /api/problems/:idOrCode/solutions   startup only, multipart → 201 Solution   (api.ts submitSolution)
+  in:  form fields title, abstract, claimedTRL, proposedCost (>0), proposedDurationWeeks (>0) + `file` (PDF, required)
+       one proposal per startup per problem (409 on a second)
+GET   /api/problems/:idOrCode/solutions   → 200 Solution[]  ranked: matchScore desc (unscored last), then oldest first
+GET   /api/solutions?problemId=&startupId= → 200 Solution[]  newest first  (api.ts getSolutions, getProposalsByStartup;
+                                                              startupId = user id)
+GET   /api/solutions/:id                   → 200 Solution    (api.ts getSolution)
+GET   /api/solutions/:id/pdf               → 200 application/pdf — same visibility as the solution
+PATCH /api/solutions/:id/status            the officer who posted the problem, or any evaluator → 200 Solution
+  in:  { status: "submitted" | "under_review" | "shortlisted" | "rejected" }   (api.ts updateSolutionStatus)
+```
+**Not yet built:** ML `/summarize` + `/rank` on submission, and the automatic eligibility
+check — both come with the ML phase (eligibility's `domain_ok` needs the startup's
+ML-extracted domain).
 
 ### Eligibility (Module 3) — build early, runs automatically
 ```
 GET  /api/solutions/:id/eligibility
 ```
-No manual POST — eligibility is computed automatically as part of `POST /api/problems/:id/solutions`
+No manual POST — eligibility will be computed automatically as part of `POST /api/problems/:id/solutions`
 (rule engine checks DPIIT status, turnover band, domain match, TRL, per `eligibility_checks` columns).
+Deferred to the ML phase (see Solutions above); not built yet.
 
 ### Evaluation (Module 4)
 ```

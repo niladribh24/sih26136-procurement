@@ -23,6 +23,9 @@ from app.models import User
 # status), rather than whatever HTTPBearer's built-in error happens to be.
 bearer_scheme = HTTPBearer(auto_error=False)
 
+# The roles that share the /gov dashboard tree in the frontend.
+GOV_ROLES = ("govt_officer", "evaluator", "admin")
+
 
 def _unauthorized(detail: str) -> HTTPException:
     return HTTPException(status.HTTP_401_UNAUTHORIZED, detail=detail, headers={"WWW-Authenticate": "Bearer"})

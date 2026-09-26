@@ -10,8 +10,8 @@ from app.auth import require_role
 from app.auth.security import create_access_token, decode_token
 from app.main import app
 from app.models import StartupProfile, User
+from tests.helpers import PASSWORD, auth, signup, signup_body
 
-PASSWORD = "correct-horse-battery"
 SESSION_KEYS = {"id", "name", "email", "role", "orgName", "department", "dpiitNumber", "avatarUrl", "token"}
 
 
@@ -20,32 +20,6 @@ SESSION_KEYS = {"id", "name", "email", "role", "orgName", "department", "dpiitNu
 @app.get("/test/officer-only")
 def _officer_only(user: User = Depends(require_role("govt_officer"))):
     return {"ok": True, "role": user.role}
-
-
-def signup_body(role: str = "startup", **overrides) -> dict:
-    body = {
-        "role": role,
-        "name": "Test User",
-        "orgName": "Test Org",
-        "email": f"test-{uuid.uuid4().hex[:10]}@example.com",
-        "password": PASSWORD,
-    }
-    if role == "startup":
-        body["dpiitNumber"] = "dipp12345"
-    else:
-        body["department"] = "Division of Testing"
-    body.update(overrides)
-    return body
-
-
-def signup(client, role: str = "startup", **overrides) -> dict:
-    res = client.post("/api/auth/signup", json=signup_body(role, **overrides))
-    assert res.status_code == 201, res.text
-    return res.json()
-
-
-def auth(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
 
 
 # ---------- signup ----------
@@ -59,7 +33,7 @@ def test_signup_startup_returns_session_and_creates_profile(client, db):
     assert set(data) <= SESSION_KEYS
     assert data["email"] == body["email"]
     assert data["role"] == "startup"
-    assert data["orgName"] == "Test Org"
+    assert data["orgName"] == body["orgName"]
     assert data["dpiitNumber"] == "DIPP12345"  # normalized to uppercase
     assert "department" not in data
     assert decode_token(data["token"])["sub"] == data["id"]

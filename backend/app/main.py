@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import engine
-from app.routers import auth
+from app.routers import auth, problems, solutions, startups
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,9 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(startups.router)
+app.include_router(problems.router)
+app.include_router(solutions.router)
 
 
 @app.get("/health")

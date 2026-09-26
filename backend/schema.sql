@@ -42,6 +42,8 @@ CREATE TABLE startup_profiles (
     dpiit_verified  BOOLEAN DEFAULT FALSE,
     turnover_band   TEXT,                 -- e.g. "<1cr", "1-5cr" — used by eligibility engine
     description     TEXT,
+    location        TEXT,                 -- e.g. "Bengaluru, Karnataka" — shown on every Solution (frontend Solution.location) via join
+    incorporation_year INT,               -- edited on the startup profile page
     extracted_tags  JSONB DEFAULT '[]',   -- [{ "domain": "AgriTech", "confidence": 0.87 }, ...]
     extracted_skills JSONB DEFAULT '[]',  -- [{ "skill": "computer vision", "confidence": 0.81 }, ...]
     embedding       REAL[],               -- nullable; no pgvector (hard to install on Windows) — /rank does its own similarity, this is unused until we have a use for it
@@ -51,40 +53,62 @@ CREATE TABLE startup_profiles (
 CREATE TABLE startup_documents (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     startup_id      UUID REFERENCES startup_profiles(id) ON DELETE CASCADE,
-    file_path       TEXT NOT NULL,
+    file_path       TEXT NOT NULL,        -- relative to the uploads dir, e.g. startup_docs/<uuid>.pdf (never the client's filename)
+    original_filename TEXT,               -- the name the user uploaded, for display only
     extracted_text  TEXT,
     uploaded_at     TIMESTAMPTZ DEFAULT now()
 );
 
 -- ---------- Module 2: Problem Statement Forum + Matching ----------
-CREATE TYPE problem_status AS ENUM ('open', 'under_review', 'closed');
+-- Values match frontend/lib/types.ts Problem.status exactly (was open/under_review/closed).
+CREATE TYPE problem_status AS ENUM ('open', 'evaluating', 'pilot_active', 'completed');
+
+-- Feeds problems.code. A sequence (not COUNT(*)+1) so two officers posting at the same
+-- moment can never get the same number.
+CREATE SEQUENCE problem_code_seq;
 
 CREATE TABLE problems (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     posted_by       UUID REFERENCES users(id),
+    code            TEXT UNIQUE NOT NULL  -- human-readable id, e.g. PRB-2026-081 — frontend Problem.code; getProblem() accepts id or code
+                        DEFAULT ('PRB-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('problem_code_seq')::text, 3, '0')),
     title           TEXT NOT NULL,
+    department      TEXT,                 -- defaults to the officer's department in the UI, but editable per problem
+    ministry        TEXT,                 -- defaults to the officer's org_name in the UI, but editable per problem
     domain          TEXT NOT NULL,
     description     TEXT NOT NULL,
     desired_outcome TEXT NOT NULL,
     budget_band     TEXT,
-    trl_expected    INT,                  -- 1-9
+    trl_expected    INT,                  -- 1-9; API maps to/from frontend "TRL-6" strings
+    deadline        DATE,                 -- frontend Problem.deadline
     status          problem_status DEFAULT 'open',
     embedding       REAL[],               -- nullable; see startup_profiles.embedding note above
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 
+-- Values match frontend/lib/types.ts Solution.status exactly.
+CREATE TYPE solution_status AS ENUM ('submitted', 'under_review', 'shortlisted', 'rejected');
+
 CREATE TABLE solution_abstracts (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     problem_id      UUID REFERENCES problems(id) ON DELETE CASCADE,
     startup_id      UUID REFERENCES startup_profiles(id) ON DELETE CASCADE,
+    title           TEXT,
     abstract_text   TEXT,
+    claimed_trl     INT,                  -- 1-9; API maps to/from frontend "TRL-6" strings
+    proposed_cost   NUMERIC,              -- rupees
+    proposed_duration_weeks INT,
+    status          solution_status DEFAULT 'submitted',
     file_path       TEXT,                 -- uploaded solution PDF
     ai_summary      TEXT,                 -- NLP-generated summary of the PDF (from /summarize)
     match_score     NUMERIC,              -- 0-1, mirrors rank_result->>'match_score' for easy sorting/filtering
     rank_result     JSONB,                -- the *entire* /rank RankResult object for this solution, verbatim from nlp/app/schemas.py:
                                            -- { solution_id, match_score, match_percent, rank, match_explanation, matched_keywords, semantic_breakdown }
                                            -- API layer maps this to frontend's matchScore / matchExplanation / matchedKeywords fields.
-    submitted_at    TIMESTAMPTZ DEFAULT now()
+    submitted_at    TIMESTAMPTZ DEFAULT now(),
+    -- One proposal per startup per problem. The UI checks too, but only this can't be bypassed.
+    -- Its index also covers lookups by problem_id alone (leftmost column).
+    CONSTRAINT solution_abstracts_problem_startup_key UNIQUE (problem_id, startup_id)
 );
 
 -- ---------- Module 3: Eligibility Screening ----------
@@ -239,7 +263,8 @@ CREATE TABLE replication_requests (
 );
 
 -- ---------- Indexes worth adding on day 1 ----------
-CREATE INDEX ON solution_abstracts (problem_id);
+-- (solution_abstracts.problem_id is covered by the UNIQUE (problem_id, startup_id) index.)
+CREATE INDEX ON problems (posted_by);
 CREATE INDEX ON solution_abstracts (startup_id);
 CREATE INDEX ON pilots (problem_id);
 CREATE INDEX ON pilots (startup_id);
