@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session, contains_eager
 from app.models import Evaluation, Problem, SolutionAbstract, StartupProfile, User
 from app.schemas.common import int_to_trl, to_date_str, trl_to_int
 from app.schemas.solution import RubricScore, SolutionOut, SolutionSubmit
+from app.services import ml_sync
+from app.services.ml_client import MLUnavailable
 from app.services.uploads import SOLUTIONS, delete_upload, save_pdf
+
+# Solution (frontend/lib/types.ts) has no "pending" flag, so the explanation text says it.
+PENDING_EXPLANATION = "AI match analysis pending."
 
 
 def _duplicate() -> HTTPException:
@@ -64,8 +69,7 @@ def _latest_rubrics(db: Session, solution_ids: list[uuid.UUID]) -> dict[uuid.UUI
 
 def _out(s: SolutionAbstract, rubric: RubricScore | None) -> SolutionOut:
     profile = s.startup
-    # rank_result holds the ML /rank output; it's NULL until the ML phase, so these fall
-    # back to 0 / "" / [] ("pending").
+    # rank_result is the ML /rank output; NULL until the solution is ranked (pending).
     rank = s.rank_result or {}
     return SolutionOut(
         id=str(s.id),
@@ -82,7 +86,7 @@ def _out(s: SolutionAbstract, rubric: RubricScore | None) -> SolutionOut:
         proposed_duration_weeks=s.proposed_duration_weeks or 0,
         submitted_at=to_date_str(s.submitted_at),
         match_score=float(s.match_score or 0),
-        match_explanation=rank.get("match_explanation", ""),
+        match_explanation=rank.get("match_explanation", PENDING_EXPLANATION),
         matched_keywords=rank.get("matched_keywords", []),
         pdf_url=f"/api/solutions/{s.id}/pdf" if s.file_path else "",
         status=s.status,
@@ -160,18 +164,29 @@ def submit_solution(
         db.rollback()
         delete_upload(rel_path)
         raise
-    # TODO(ML phase): call /summarize + /rank here and run the eligibility engine.
+    # Committed first, so the submission stands even if ML is down (summary stays pending).
+    # Ranking isn't done here: it happens when an officer/evaluator lists the problem's
+    # solutions, in one /rank call for all of them.
+    try:
+        ml_sync.run_summarize(db, solution)
+    except MLUnavailable:
+        pass
+    # TODO(eligibility phase): run the eligibility rule engine here.
     return solution.id
 
 
-def update_status(db: Session, user: User, solution: SolutionAbstract, new_status: str) -> None:
-    # require_role on the route already limits this to govt_officer / evaluator. An
-    # evaluator may act on any solution; an officer only on their own problems.
+def check_can_manage(db: Session, user: User, problem_id: uuid.UUID) -> None:
+    # require_role on the route already limits callers to govt_officer / evaluator. An
+    # evaluator may act on any problem's solutions; an officer only on their own problems.
     if user.role == "govt_officer":
-        posted_by = db.scalar(select(Problem.posted_by).where(Problem.id == solution.problem_id))
+        posted_by = db.scalar(select(Problem.posted_by).where(Problem.id == problem_id))
         if posted_by != user.id:
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN, detail="Only the officer who posted this problem can change this"
             )
+
+
+def update_status(db: Session, user: User, solution: SolutionAbstract, new_status: str) -> None:
+    check_can_manage(db, user, solution.problem_id)
     solution.status = new_status
     db.commit()

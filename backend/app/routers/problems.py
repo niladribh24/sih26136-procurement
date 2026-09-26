@@ -1,17 +1,18 @@
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user, require_role
+from app.auth import GOV_ROLES, get_current_user, require_role
 from app.database import get_db
 from app.models import User
 from app.schemas.common import TRL
 from app.schemas.problem import Domain, ProblemCreate, ProblemOut, ProblemStatus, ProblemUpdate
 from app.schemas.solution import SolutionOut, SolutionSubmit
-from app.services import problem_service, solution_service
+from app.services import ml_sync, problem_service, solution_service
+from app.services.ml_client import MLUnavailable
 from app.services.startup_service import get_profile
 
 router = APIRouter(prefix="/api/problems", tags=["problems"])
@@ -98,4 +99,29 @@ def problem_solutions(
     problem_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> list[SolutionOut]:
     problem = problem_service.get_problem(db, problem_id)
+    # Officers/evaluators see ranked results: if anything is unscored (new submissions, or
+    # ML was down last time), rank the whole problem once, then list. If ML is still down,
+    # the list comes back anyway with the unscored ones marked pending.
+    if user.role in GOV_ROLES and ml_sync.has_unranked(db, problem.id):
+        try:
+            ml_sync.rank_problem(db, problem)
+        except MLUnavailable:
+            pass
+    return solution_service.list_solutions(db, user, problem_id=problem.id, ranked=True)
+
+
+@router.post("/{problem_id}/solutions/rank", response_model=list[SolutionOut], response_model_exclude_none=True)
+def rank_solutions(
+    problem_id: str,
+    user: User = Depends(require_role("govt_officer", "evaluator")),
+    db: Session = Depends(get_db),
+) -> list[SolutionOut]:
+    """Force a fresh ranking of every solution to this problem."""
+    problem = problem_service.get_problem(db, problem_id)
+    solution_service.check_can_manage(db, user, problem.id)
+    try:
+        ml_sync.rank_problem(db, problem)
+    except MLUnavailable:
+        # An explicit action should say it failed, unlike the silent fallback on listing.
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="ML service unavailable; try again later")
     return solution_service.list_solutions(db, user, problem_id=problem.id, ranked=True)

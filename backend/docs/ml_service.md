@@ -1,6 +1,21 @@
 # ML Service API
 
-The ML service runs as a FastAPI microservice on port `:8001` (ASSUMED based on `main.py` comments referencing `:8001`). 
+The ML service (`nlp/`) runs as a FastAPI microservice on port `:8001` (`uvicorn app.main:app --port 8001`).
+Shapes below are copied from `nlp/app/schemas.py`, which is the source of truth; the backend
+validates every response against its own copy in `backend/app/schemas/ml.py`.
+
+## How the backend calls it
+All calls go through `backend/app/services/ml_client.py` (httpx, 2 s connect timeout,
+`ML_TIMEOUT_SECONDS` read timeout, default 60). Any failure (down, timeout, non-2xx, or a
+response that doesn't validate) becomes `MLUnavailable`, and the data is left pending for
+`python retry_ml.py`. Full responses are stored verbatim in JSONB.
+
+| Endpoint | Called when | Backend sends | Stored in |
+|---|---|---|---|
+| `/extract` | startup uploads a document | the saved PDF as `file`, plus `target_domains` = the six frontend domains | `startup_documents.extract_result`; union of tags/skills + best domain on `startup_profiles` |
+| `/summarize` | solution submitted | PDF text via pypdf (abstract if < 200 chars), capped at 15k chars | `solution_abstracts.summary_result`, `ai_summary` |
+| `/rank` | officer/evaluator lists a problem's solutions and any are unranked, or `POST .../solutions/rank` | the problem + **all** its solutions in one call | `solution_abstracts.rank_result`, `match_score` |
+
 It provides the following endpoints:
 
 ## 1. POST `/extract`

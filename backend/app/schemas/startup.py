@@ -14,18 +14,24 @@ TurnoverBand = Literal["< ₹1Cr", "₹1Cr–₹5Cr", "₹5Cr–₹25Cr", "> ₹
 # profile page edits and displays.
 
 
+# "pending": the ML service was unreachable; retry_ml.py fills it in later.
+ExtractionStatus = Literal["done", "pending"]
+
+
 class StartupDocumentOut(CamelModel):
     id: str
     file_name: str
     uploaded_at: str
+    extraction_status: ExtractionStatus
 
 
 class DocumentUploadResult(StartupDocumentOut):
-    """POST /api/startups/me/documents. The last three fields are the shape of api.ts
-    extractDocumentTags(); they stay empty until the ML /extract phase fills them."""
+    """POST /api/startups/me/documents. domain/tags/summary are the shape of api.ts
+    extractDocumentTags(); all four ML fields are empty while extractionStatus is "pending"."""
 
     domain: str = ""
     tags: list[str] = []
+    skills: list[str] = []
     summary: str = ""
 
 
@@ -34,6 +40,7 @@ class StartupProfileOut(CamelModel):
     startup_name: str
     dpiit_number: str
     dpiit_verified: bool
+    domain: str | None = None  # ML-classified, from the most confident document
     turnover_band: str | None = None
     location: str | None = None
     incorporation_year: int | None = None

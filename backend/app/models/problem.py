@@ -60,6 +60,7 @@ class SolutionAbstract(Base):
     status: Mapped[str | None] = mapped_column(solution_status, server_default=text("'submitted'"))
     file_path: Mapped[str | None] = mapped_column(Text)
     ai_summary: Mapped[str | None] = mapped_column(Text)
+    summary_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # full /summarize response; NULL = pending
     match_score: Mapped[Decimal | None] = mapped_column(Numeric)
     rank_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # full /rank RankResult — see schema.sql comment
     submitted_at: Mapped[datetime | None] = timestamp_now()

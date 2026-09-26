@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models import Evaluation, StartupProfile
+from app.services.solution_service import PENDING_EXPLANATION
 from app.services.uploads import MAX_UPLOAD_BYTES
 from tests.helpers import (
     PDF_BYTES,
@@ -64,8 +65,8 @@ def test_startup_submits_solution(client, problem, upload_dir):
     assert data["proposedCost"] == 2850000
     assert data["proposedDurationWeeks"] == 8
     assert data["status"] == "submitted"
-    # ML not wired up yet: pending values.
-    assert (data["matchScore"], data["matchExplanation"], data["matchedKeywords"]) == (0, "", [])
+    # Not ranked yet: ranking happens when an officer/evaluator lists the solutions.
+    assert (data["matchScore"], data["matchExplanation"], data["matchedKeywords"]) == (0, PENDING_EXPLANATION, [])
     assert data["pdfUrl"] == f"/api/solutions/{data['id']}/pdf"
     assert len(list((upload_dir / "solutions").iterdir())) == 1
 

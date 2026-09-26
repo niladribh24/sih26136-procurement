@@ -23,6 +23,7 @@ class StartupProfile(Base):
     dpiit_verified: Mapped[bool | None] = mapped_column(Boolean, server_default=false())
     turnover_band: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
+    domain: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(Text)
     incorporation_year: Mapped[int | None] = mapped_column(Integer)
     extracted_tags: Mapped[list[Any] | None] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
@@ -43,4 +44,5 @@ class StartupDocument(Base):
     file_path: Mapped[str] = mapped_column(Text)
     original_filename: Mapped[str | None] = mapped_column(Text)
     extracted_text: Mapped[str | None] = mapped_column(Text)
+    extract_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # full /extract response; NULL = pending
     uploaded_at: Mapped[datetime | None] = timestamp_now()

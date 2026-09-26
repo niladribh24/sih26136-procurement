@@ -49,11 +49,33 @@ These decisions were made explicitly by the user and applied to `backend/schema.
 
 11. `startup_profiles.user_id` is now `UNIQUE`: one profile per user, and the constraint's index serves the `user_id` lookup. The drift test now also compares UNIQUE constraints between the models and the DB.
 
+12. `problems` gained `code` (UNIQUE, filled by a DB default from the `problem_code_seq` sequence → `PRB-2026-001`), `department`, `ministry` (stored per problem, since the create form lets the officer edit them), and `deadline DATE`. The `problem_status` enum is now `open | evaluating | pilot_active | completed`, matching `Problem.status` (it was `open/under_review/closed`). `trl_expected` stays an INT, and the API maps it to and from `"TRL-6"`. `submissionCount` is counted at read time, not stored. Added an index on `problems(posted_by)`.
+
+13. `solution_abstracts` gained `title`, `claimed_trl INT`, `proposed_cost NUMERIC`, `proposed_duration_weeks INT`, and `status` (new `solution_status` enum `submitted | under_review | shortlisted | rejected`), plus `UNIQUE (problem_id, startup_id)`: one proposal per startup per problem, 409 on a second one. That constraint's index replaced the standalone `solution_abstracts(problem_id)` index. `startup_profiles` gained `location` and `incorporation_year`, and `startup_documents` gained `original_filename`, which is for display only. The drift test now also compares multi-column UNIQUE constraints.
+
+14. Startup profile, document, problem, and solution endpoints are built; see `backend/docs/api_contract.md` for URLs. Decisions made there:
+    - `Solution.startupId` is the startup's **user id**, because the frontend compares it to `session.id`.
+    - A startup only ever sees its own solutions. Anyone else's returns 404, not 403.
+    - Only a `govt_officer` creates problems, and only the officer who posted a problem can edit it.
+    - A solution's status can be changed by the officer who posted its problem or by any evaluator. Admins can't.
+    - Uploaded PDFs go to `backend/uploads/` (the `UPLOAD_DIR` setting) under random names. A file only counts as a PDF if it starts with the `%PDF-` bytes (otherwise 415), and the limit is 10 MB (413).
+    - Rubric writing (`updateSolutionRubric`) and the eligibility engine are deferred to later phases. (ML fields were left pending in this round; #15 fills them.)
+
+15. The ML service is integrated (`services/ml_client.py`, `services/ml_sync.py`; see `backend/docs/ml_service.md`).
+    - **Schema:**
+      - `startup_documents.extract_result JSONB` and `solution_abstracts.summary_result JSONB` hold the full `/extract` and `/summarize` responses, the same way `rank_result` holds `/rank`'s.
+      - `startup_profiles.domain TEXT` holds the most confident `/extract` domain.
+      - `extracted_tags`/`extracted_skills` are now flat string arrays (the deduplicated union across the startup's documents). This closes the old tags-shape gap.
+    - **When each pipeline runs:**
+      - `/extract` receives the PDF itself on document upload.
+      - `/summarize` runs on solution submission. Its input is the PDF text read with `pypdf` (a new dependency), or the abstract if the PDF has under 200 characters of text. The summary is stored only, not exposed, because `Solution` has no field for it.
+      - `/rank` scores all of a problem's solutions in one call. It runs automatically when a government role lists the problem's solutions and any are unranked, or on demand via `POST /api/problems/:id/solutions/rank` (the owning officer or any evaluator; 503 if ML is down).
+    - **Failure handling:** ML failures never fail a request. Rows are committed first, then ML runs, and anything missing stays pending (NULL). An unranked solution's `matchExplanation` reads `"AI match analysis pending."` Run `python retry_ml.py` to fill in everything pending.
+    - **Tests:** an autouse `FakeML` fixture (down by default) sits behind `httpx.MockTransport`, so pytest never contacts a real ML service. `tests/test_ml_live.py` runs only with `RUN_LIVE_ML=1`.
+
 One knock-on rename made *because of* #4, not an independent decision: `pilots.missed_milestones_count` was renamed to `failed_milestones_count`, since "missed" is no longer a valid milestone status — flagged here in case that's not wanted.
 
-Two known gaps this round did **not** touch (raised earlier, not yet decided):
-- `nlp/app/schemas.py`'s `/extract` returns flat `tags: List[str]` / `skills: List[str]` plus `domain`/`confidence`/`summary`/`extracted_trl_estimate`/`ocr_performed`; `startup_profiles.extracted_tags`/`extracted_skills` still assume the old `[{domain/skill, confidence}]` object-array shape.
-- `frontend/lib/api.ts`'s `logAuditEntry()` has no backing table in `schema.sql` at all.
+Known gap, not yet decided: `frontend/lib/api.ts`'s `logAuditEntry()` has no backing table in `schema.sql` at all. (The other old gap, the `extracted_tags` shape, was resolved in #15.)
 
 ### Stack
 - **Framework:** FastAPI
@@ -63,7 +85,7 @@ Two known gaps this round did **not** touch (raised earlier, not yet decided):
 - **Outbound calls:** `httpx` for the backend → ML service calls (never the reverse, never frontend → ML directly)
 
 ### `backend/` folder structure
-The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test), plus auth (`auth/`, `schemas/auth.py`, `services/auth_service.py`, `routers/auth.py`). The other `schemas/`/`routers/`/`services/` modules are still planned and get created as endpoints are built. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
+The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test), plus auth, the startup/problem/solution endpoints, and the ML integration. The pilot, evaluation, scale, and eligibility modules are still planned and get created as endpoints are built. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
 
 ```
 backend/
@@ -73,7 +95,8 @@ backend/
 │   └── ml_service.md          # ML service shapes, kept in sync with nlp/app/schemas.py
 ├── requirements.txt
 ├── init_db.py                # applies schema.sql via psycopg (psql isn't on PATH); --reset wipes + rebuilds
-├── .env.example              # DATABASE_URL, JWT_SECRET, ML_SERVICE_URL, FRONTEND_URL — never commit a real .env
+├── retry_ml.py               # re-runs ML work left pending while the ML service was down; prints counts
+├── .env.example              # DATABASE_URL, JWT_SECRET, ML_SERVICE_URL, ML_TIMEOUT_SECONDS, FRONTEND_URL — never commit a real .env
 ├── app/
 │   ├── main.py                # FastAPI app instance, router registration, CORS
 │   ├── config.py               # settings loaded from env (pydantic-settings)
@@ -88,17 +111,33 @@ backend/
 │   │   └── procurement.py      # procurement_records, proven_solutions, replication_requests
 │   ├── schemas/                 # Pydantic request/response models — mirrors frontend/lib/types.ts shapes
 │   │   ├── base.py               # CamelModel: snake_case fields, camelCase wire format — subclass it
-│   │   └── auth.py               # SignupRequest, LoginRequest, UserSession
-│   ├── routers/                  # one router per docs/api_contract.md section (auth, startups, problems, pilots, ...)
+│   │   ├── common.py             # TRL literal + "TRL-6"<->6, IST YYYY-MM-DD date formatting
+│   │   ├── auth.py               # SignupRequest, LoginRequest, UserSession
+│   │   ├── startup.py            # StartupProfileOut/Update, document shapes (no types.ts equivalent)
+│   │   ├── problem.py            # ProblemCreate/Update/Out (= types.ts Problem)
+│   │   ├── solution.py           # SolutionSubmit (multipart fields), SolutionOut (= types.ts Solution)
+│   │   └── ml.py                 # copies of nlp/app/schemas.py response models; every ML response is validated against them
+│   ├── routers/                  # one router per docs/api_contract.md section: auth, startups, problems, solutions (pilots, ... to come)
 │   ├── services/
 │   │   ├── auth_service.py       # register_user, authenticate, build_session (UserSession + dpiit join)
-│   │   ├── ml_client.py          # httpx wrapper for nlp /extract, /summarize, /rank
+│   │   ├── startup_service.py    # profile read/update, document upload
+│   │   ├── problem_service.py    # problem CRUD, submissionCount via one grouped subquery
+│   │   ├── solution_service.py   # submit, visibility rules (startups see own only), status changes
+│   │   ├── uploads.py            # PDF save (magic-byte check, 10 MB cap, random names) under UPLOAD_DIR
+│   │   ├── ml_client.py          # httpx wrapper for nlp /extract, /summarize, /rank; every failure → MLUnavailable
+│   │   ├── ml_sync.py            # runs the pipelines + stores results (extract→profile, summarize, rank_problem, retry_pending)
 │   │   ├── eligibility.py        # rule engine — runs automatically on solution submission, build early
 │   │   └── pilot_state_machine.py # enforces the pilot status transitions server-side
 │   └── auth/                     # security.py (bcrypt, JWT), dependencies.py (get_current_user, require_role)
 └── tests/
-    ├── conftest.py               # db fixture: live sih_db, each test wrapped in a transaction that's rolled back
+    ├── conftest.py               # db fixture: live sih_db, each test wrapped in a transaction that's rolled back; uploads → tmp_path; autouse FakeML (down by default)
+    ├── helpers.py                # signup/auth/create_problem/submit_solution helpers shared by the tests
     ├── test_auth.py              # signup/login/me/require_role
+    ├── test_startups.py          # profile, documents, upload limits
+    ├── test_problems.py          # problem CRUD + role rules
+    ├── test_solutions.py         # submit, visibility, status, PDF download
+    ├── test_ml.py                # extract/summarize/rank wiring, pending on failure, force-rank, retry_pending
+    ├── test_ml_live.py           # one end-to-end run against the REAL ML service; skipped unless RUN_LIVE_ML=1
     └── test_models_match_schema.py  # reflects the live DB and fails if models drift from schema.sql
 ```
 
@@ -137,8 +176,10 @@ pip install -r requirements.txt
 Copy-Item .env.example .env        # fill in postgres password
 python init_db.py                  # create sih_db if missing + apply schema (no-op if already applied)
 python init_db.py --reset          # DEV ONLY: drop everything and re-apply
-pytest                             # drift test, replication CHECK test, auth tests (all roll back; no rows left behind)
+pytest                             # drift, auth, startup/problem/solution tests (all roll back; no rows or files left behind)
 uvicorn app.main:app --reload --port 8000   # GET /health checks DB connectivity
+python retry_ml.py                 # fill in ML results left pending while the ML service was down
+$env:RUN_LIVE_ML = "1"; pytest tests/test_ml_live.py -q   # one real end-to-end ML check (ML service must be running)
 ```
 
 ## Architecture notes that span files

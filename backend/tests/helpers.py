@@ -99,3 +99,29 @@ def submit_solution(client, startup_token: str, problem_id: str, **overrides) ->
     )
     assert res.status_code == 201, res.text
     return res.json()
+
+
+def text_pdf(text: str) -> bytes:
+    """A minimal but valid one-page PDF whose text layer is `text` (so pypdf and the ML
+    service's pdfplumber can both read it back). PDF_BYTES above has no text at all."""
+    lines = [text[i:i + 90] for i in range(0, len(text), 90)]
+    # Backslash and parentheses are special inside a PDF (string) literal.
+    escaped = [ln.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)") for ln in lines]
+    stream = ("BT /F1 9 Tf 12 TL 40 800 Td " + " ".join(f"({ln}) '" for ln in escaped) + " ET").encode("latin-1")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> >> >>",
+        b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out, offsets = bytearray(b"%PDF-1.4\n"), []
+    for n, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % n + body + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    out += b"".join(b"%010d 00000 n \n" % off for off in offsets)
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objects) + 1, xref)
+    return bytes(out)

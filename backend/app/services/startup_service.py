@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.models import StartupDocument, StartupProfile, User
 from app.schemas.common import to_date_str
 from app.schemas.startup import DocumentUploadResult, StartupDocumentOut, StartupProfileOut, StartupProfileUpdate
+from app.services import ml_sync
+from app.services.ml_client import MLUnavailable
 from app.services.uploads import STARTUP_DOCS, delete_upload, display_name, save_pdf
 
 
@@ -22,9 +24,8 @@ def get_profile(db: Session, user_id: uuid.UUID) -> StartupProfile:
 
 
 def _labels(items: list[Any] | None) -> list[str]:
-    # extracted_tags/skills are empty until the ML phase, which will also settle their
-    # final shape (flat strings from /extract vs. the {domain/skill, confidence} objects
-    # schema.sql's comment describes). Accept both so neither breaks this endpoint.
+    # /extract returns flat strings, which is what's stored. The object form is from an
+    # older schema draft; accepting it too costs nothing.
     labels = []
     for item in items or []:
         if isinstance(item, str):
@@ -36,7 +37,10 @@ def _labels(items: list[Any] | None) -> list[str]:
 
 def _document_out(doc: StartupDocument) -> StartupDocumentOut:
     return StartupDocumentOut(
-        id=str(doc.id), file_name=doc.original_filename or "document.pdf", uploaded_at=to_date_str(doc.uploaded_at)
+        id=str(doc.id),
+        file_name=doc.original_filename or "document.pdf",
+        uploaded_at=to_date_str(doc.uploaded_at),
+        extraction_status="done" if doc.extract_result is not None else "pending",
     )
 
 
@@ -55,6 +59,7 @@ def build_profile(db: Session, profile: StartupProfile) -> StartupProfileOut:
         startup_name=profile.user.org_name,
         dpiit_number=profile.dpiit_number or "",
         dpiit_verified=bool(profile.dpiit_verified),
+        domain=profile.domain,
         turnover_band=profile.turnover_band,
         location=profile.location,
         incorporation_year=profile.incorporation_year,
@@ -96,5 +101,19 @@ def add_document(db: Session, profile: StartupProfile, file: UploadFile) -> Docu
         delete_upload(rel_path)
         raise
     db.refresh(doc)
-    # ML /extract isn't called yet, so domain/tags/summary keep their empty defaults.
-    return DocumentUploadResult(**_document_out(doc).model_dump())
+
+    # The upload is committed before ML is called, so an ML failure or timeout can never
+    # lose it; the document just stays pending for retry_ml.py.
+    try:
+        ml_sync.run_extract(db, doc)
+    except MLUnavailable:
+        pass
+
+    result = doc.extract_result or {}
+    return DocumentUploadResult(
+        **_document_out(doc).model_dump(),
+        domain=result.get("domain", ""),
+        tags=result.get("tags", []),
+        skills=result.get("skills", []),
+        summary=result.get("summary", ""),
+    )

@@ -44,8 +44,9 @@ CREATE TABLE startup_profiles (
     description     TEXT,
     location        TEXT,                 -- e.g. "Bengaluru, Karnataka" — shown on every Solution (frontend Solution.location) via join
     incorporation_year INT,               -- edited on the startup profile page
-    extracted_tags  JSONB DEFAULT '[]',   -- [{ "domain": "AgriTech", "confidence": 0.87 }, ...]
-    extracted_skills JSONB DEFAULT '[]',  -- [{ "skill": "computer vision", "confidence": 0.81 }, ...]
+    domain          TEXT,                 -- ML-classified domain (from /extract, most confident document) — used by eligibility domain_ok
+    extracted_tags  JSONB DEFAULT '[]',   -- flat strings, as /extract returns them: ["Computer Vision", ...] — union across documents
+    extracted_skills JSONB DEFAULT '[]',  -- flat strings: ["edge inference", ...] — union across documents
     embedding       REAL[],               -- nullable; no pgvector (hard to install on Windows) — /rank does its own similarity, this is unused until we have a use for it
     created_at      TIMESTAMPTZ DEFAULT now()
 );
@@ -56,6 +57,8 @@ CREATE TABLE startup_documents (
     file_path       TEXT NOT NULL,        -- relative to the uploads dir, e.g. startup_docs/<uuid>.pdf (never the client's filename)
     original_filename TEXT,               -- the name the user uploaded, for display only
     extracted_text  TEXT,
+    extract_result  JSONB,                -- the *entire* ML /extract response, verbatim (domain, confidence, tags, skills, summary,
+                                           -- extracted_trl_estimate, ocr_performed). NULL = pending (ML was down) — retry_ml.py fills it.
     uploaded_at     TIMESTAMPTZ DEFAULT now()
 );
 
@@ -100,7 +103,8 @@ CREATE TABLE solution_abstracts (
     proposed_duration_weeks INT,
     status          solution_status DEFAULT 'submitted',
     file_path       TEXT,                 -- uploaded solution PDF
-    ai_summary      TEXT,                 -- NLP-generated summary of the PDF (from /summarize)
+    ai_summary      TEXT,                 -- NLP-generated summary of the PDF (from /summarize). NULL = pending.
+    summary_result  JSONB,                -- the *entire* /summarize response (summary, technical_claims, cost_timeline_summary)
     match_score     NUMERIC,              -- 0-1, mirrors rank_result->>'match_score' for easy sorting/filtering
     rank_result     JSONB,                -- the *entire* /rank RankResult object for this solution, verbatim from nlp/app/schemas.py:
                                            -- { solution_id, match_score, match_percent, rank, match_explanation, matched_keywords, semantic_breakdown }

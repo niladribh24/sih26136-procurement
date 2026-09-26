@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # 24h — matches the frontend's samarth_session_role cookie max-age.
     jwt_expire_minutes: int = 1440
     ml_service_url: str = "http://localhost:8001"
+    # Read timeout per ML call. /extract can OCR a scanned PDF and the zero-shot model is
+    # slow on first use, so this is well above httpx's 5s default. Connect timeout is 2s.
+    ml_timeout_seconds: float = 60
     frontend_url: str = "http://localhost:3000"
     # Uploaded PDFs live here; the DB stores paths relative to it. Gitignored.
     upload_dir: Path = BACKEND_DIR / "uploads"

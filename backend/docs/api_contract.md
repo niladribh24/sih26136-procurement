@@ -99,11 +99,12 @@ There is no `StartupProfile` type in `frontend/lib/types.ts`; this shape follows
 `frontend/app/(dashboard)/startup/profile/page.tsx`. The profile row is created at signup.
 ```
 StartupProfile {
-  userId, startupName, dpiitNumber, dpiitVerified,
+  userId, startupName, dpiitNumber, dpiitVerified, domain?,
   turnoverBand?, location?, incorporationYear?, description?,
-  tags: string[], skills: string[],          -- empty until the ML /extract phase
-  documents: [{ id, fileName, uploadedAt }]
+  tags: string[], skills: string[],          -- union across the startup's extracted documents
+  documents: [{ id, fileName, uploadedAt, extractionStatus: "done" | "pending" }]
 }
+domain = the most confident /extract classification across documents (one of Problem.domain's six values)
 
 GET   /api/startups/me                    startup only                 → 200 StartupProfile
 PATCH /api/startups/me                    startup only                 → 200 StartupProfile
@@ -113,9 +114,11 @@ PATCH /api/startups/me                    startup only                 → 200 S
        dpiitNumber → same regex as signup, stored uppercase; changing it resets dpiitVerified to false
        turnoverBand: "< ₹1Cr" | "₹1Cr–₹5Cr" | "₹5Cr–₹25Cr" | "> ₹25Cr"
 POST  /api/startups/me/documents          startup only, multipart `file` → 201
-  out: { id, fileName, uploadedAt, domain: "", tags: [], summary: "" }
-       the last three are api.ts extractDocumentTags()'s shape — empty until ML /extract is wired in
-GET   /api/startups/me/documents          startup only                 → 200 [{ id, fileName, uploadedAt }]
+  out: { id, fileName, uploadedAt, extractionStatus, domain, tags, skills, summary }
+       domain/tags/summary are api.ts extractDocumentTags()'s shape. The backend sends the PDF to ML
+       /extract right after saving it. If ML is down/slow/erroring the upload still succeeds with
+       extractionStatus "pending" and "" / [] values — see "ML pending & retry" below.
+GET   /api/startups/me/documents          startup only                 → 200 [{ id, fileName, uploadedAt, extractionStatus }]
 GET   /api/startups/:userId               government roles, or the startup itself → 200 StartupProfile
 ```
 
@@ -140,7 +143,8 @@ Response is `Solution` from `frontend/lib/types.ts` exactly:
 - `startupName` / `dpiitNumber` / `dpiitVerified` / `location` come from the startup's
   profile at read time — never from the submission.
 - `matchScore` / `matchExplanation` / `matchedKeywords` are mapped from `rank_result`
-  (the ML `/rank` result); until the ML phase they are `0` / `""` / `[]`.
+  (the ML `/rank` result). Until a solution is ranked they are `0` /
+  `"AI match analysis pending."` / `[]` (`Solution` has no pending flag, so the text says it).
 - `pdfUrl` is `/api/solutions/:id/pdf` (relative to the backend; needs the Bearer header).
 - `rubricScore` is the latest `evaluations` row; omitted if never scored.
 
@@ -151,6 +155,11 @@ POST  /api/problems/:idOrCode/solutions   startup only, multipart → 201 Soluti
   in:  form fields title, abstract, claimedTRL, proposedCost (>0), proposedDurationWeeks (>0) + `file` (PDF, required)
        one proposal per startup per problem (409 on a second)
 GET   /api/problems/:idOrCode/solutions   → 200 Solution[]  ranked: matchScore desc (unscored last), then oldest first
+      for government roles: if any solution is unranked, the backend first ranks ALL of the
+      problem's solutions in one ML /rank call and saves the results; if ML is down it just
+      returns the list with the unranked ones pending (never an error). Startups never trigger it.
+POST  /api/problems/:idOrCode/solutions/rank   the officer who posted the problem, or any evaluator
+      → 200 Solution[] (ranked)   forces a fresh /rank of every solution; 503 if ML is down
 GET   /api/solutions?problemId=&startupId= → 200 Solution[]  newest first  (api.ts getSolutions, getProposalsByStartup;
                                                               startupId = user id)
 GET   /api/solutions/:id                   → 200 Solution    (api.ts getSolution)
@@ -158,9 +167,24 @@ GET   /api/solutions/:id/pdf               → 200 application/pdf — same visi
 PATCH /api/solutions/:id/status            the officer who posted the problem, or any evaluator → 200 Solution
   in:  { status: "submitted" | "under_review" | "shortlisted" | "rejected" }   (api.ts updateSolutionStatus)
 ```
-**Not yet built:** ML `/summarize` + `/rank` on submission, and the automatic eligibility
-check — both come with the ML phase (eligibility's `domain_ok` needs the startup's
-ML-extracted domain).
+On submission the backend also calls ML `/summarize` and stores the result
+(`solution_abstracts.ai_summary` + `summary_result`). The input is the solution PDF's
+text (pypdf), or the abstract if the PDF has under 200 characters of text (e.g. a scan).
+The summary is **not** in the response: `Solution` in `types.ts` has no field for it.
+
+**Not yet built:** the automatic eligibility check (next phase).
+
+### ML pending & retry
+The backend is the only caller of the ML service (`ML_SERVICE_URL`; timeouts: 2 s connect,
+`ML_TIMEOUT_SECONDS` read, default 60). No endpoint above fails because ML is down:
+uploads and submissions are committed first, then ML runs. Anything that didn't get ML
+results stays **pending** (`extract_result` / `ai_summary` / `rank_result` NULL). To fill
+it in later, run from `backend/`:
+```
+python retry_ml.py     # extracts pending documents, summarizes pending solutions,
+                       # ranks every problem with an unranked solution; prints counts
+```
+Ranking also catches up by itself the next time an officer/evaluator lists the problem's solutions.
 
 ### Eligibility (Module 3) — build early, runs automatically
 ```
@@ -168,7 +192,7 @@ GET  /api/solutions/:id/eligibility
 ```
 No manual POST — eligibility will be computed automatically as part of `POST /api/problems/:id/solutions`
 (rule engine checks DPIIT status, turnover band, domain match, TRL, per `eligibility_checks` columns).
-Deferred to the ML phase (see Solutions above); not built yet.
+Not built yet (next phase). `startup_profiles.domain` (from ML /extract) is now available for `domain_ok`.
 
 ### Evaluation (Module 4)
 ```
