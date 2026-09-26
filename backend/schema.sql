@@ -37,7 +37,7 @@ CREATE TABLE users (
 -- ---------- Module 1: Startup Discovery ----------
 CREATE TABLE startup_profiles (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_id         UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,  -- one profile per user; UNIQUE also gives Postgres an index for the user_id lookup
     dpiit_number    TEXT,
     dpiit_verified  BOOLEAN DEFAULT FALSE,
     turnover_band   TEXT,                 -- e.g. "<1cr", "1-5cr" — used by eligibility engine

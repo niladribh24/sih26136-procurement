@@ -32,17 +32,43 @@ Both responses return the **full** `UserSession` shape from `frontend/lib/types.
 (not just `{user_id, token}`) so the frontend has everything it needs right
 after login/signup with no follow-up call.
 
-```
-POST /api/auth/signup
-  in:  { name, role, org_name, email, password, department? }
-  out: { id, name, email, role, orgName, department?, dpiitNumber?, avatarUrl?, token }
-       (dpiitNumber is null until the startup fills in their profile)
+Request and response bodies are both camelCase. Optional fields that have no
+value are **omitted** from the response (not sent as `null`), like the TS `?:`.
+The password (and its hash) is never returned.
 
-POST /api/auth/login
-  in:  { email, password }
-  out: { id, name, email, role, orgName, department?, dpiitNumber?, avatarUrl?, token }
-       (dpiitNumber populated via join to startup_profiles when role = 'startup')
 ```
+POST /api/auth/signup                                   → 201
+  in:  { role, name, orgName, email, password, department?, dpiitNumber? }
+       role:        "startup" | "govt_officer" | "evaluator"   ("admin" can't self-register → 422)
+       startup:     dpiitNumber required, must match /^(DIPP|DPIIT)\d{5}$/i (stored uppercase);
+                    creates the startup_profiles row immediately (dpiit_verified = false)
+       govt_officer / evaluator: department required
+       password:    8–72 bytes (bcrypt's limit)
+       email:       stored lowercased; uniqueness is case-insensitive in practice
+  out: UserSession { id, name, email, role, orgName, department?, dpiitNumber?, avatarUrl?, token }
+
+POST /api/auth/login                                    → 200
+  in:  { email, password }
+  out: UserSession   (dpiitNumber comes from startup_profiles when role = 'startup')
+
+GET /api/auth/me                                        → 200
+  header: Authorization: Bearer <token>
+  out: UserSession   (token echoes the one sent)
+```
+
+**Authenticated requests** send `Authorization: Bearer <token>`. The token is
+an HS256 JWT (`sub` = user id, `role`, `exp`), valid 24h by default
+(`JWT_EXPIRE_MINUTES`). The server re-reads the user from the DB on every
+request and does not rely on the token's `role` claim.
+
+**Errors**: `{ "detail": "..." }` (a FastAPI validation error has a list in `detail`)
+
+| Status | When |
+|---|---|
+| 401 | missing/invalid/expired token (`WWW-Authenticate: Bearer`), or wrong email/password at login (the same message for both) |
+| 403 | valid token, but the user's role isn't allowed on that endpoint |
+| 409 | signup with an email that already exists |
+| 422 | request body failed validation (missing role-specific field, bad DPIIT, `role: "admin"`, ...) |
 
 ### Startup profile (Module 1)
 ```

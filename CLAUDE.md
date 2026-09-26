@@ -45,6 +45,10 @@ These decisions were made explicitly by the user and applied to `backend/schema.
 
 9. `replication_requests.status` is `NOT NULL` with a named CHECK constraint (`replication_requests_status_check`) restricting it to `pending | approved | in_pilot`.
 
+10. Auth (built): `POST /api/auth/signup` takes **camelCase** input `{ role, name, orgName, email, password, department?, dpiitNumber? }` (was snake_case `org_name`). Startups must give `dpiitNumber` at signup (frontend regex `^(DIPP|DPIIT)\d{5}$`), and signup creates their `startup_profiles` row right away (was: null until the profile was filled in). `govt_officer`/`evaluator` must give `department`. `admin` can't self-register (422). Added `GET /api/auth/me`, which returns `UserSession`. Error codes: 401 bad/missing/expired token or bad credentials, 403 wrong role, 409 duplicate email, 422 validation. Use `app.auth.get_current_user` / `require_role(...)` to protect new endpoints.
+
+11. `startup_profiles.user_id` is now `UNIQUE`: one profile per user, and the constraint's index serves the `user_id` lookup. The drift test now also compares UNIQUE constraints between the models and the DB.
+
 One knock-on rename made *because of* #4, not an independent decision: `pilots.missed_milestones_count` was renamed to `failed_milestones_count`, since "missed" is no longer a valid milestone status — flagged here in case that's not wanted.
 
 Two known gaps this round did **not** touch (raised earlier, not yet decided):
@@ -59,7 +63,7 @@ Two known gaps this round did **not** touch (raised earlier, not yet decided):
 - **Outbound calls:** `httpx` for the backend → ML service calls (never the reverse, never frontend → ML directly)
 
 ### `backend/` folder structure
-The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test). `schemas/`, `routers/`, `services/`, `auth/` are still planned — created as endpoints get built. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
+The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test), plus auth (`auth/`, `schemas/auth.py`, `services/auth_service.py`, `routers/auth.py`). The other `schemas/`/`routers/`/`services/` modules are still planned and get created as endpoints are built. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
 
 ```
 backend/
@@ -83,13 +87,18 @@ backend/
 │   │   ├── agreement.py        # ip_agreements, kpi_logs, validations
 │   │   └── procurement.py      # procurement_records, proven_solutions, replication_requests
 │   ├── schemas/                 # Pydantic request/response models — mirrors frontend/lib/types.ts shapes
+│   │   ├── base.py               # CamelModel: snake_case fields, camelCase wire format — subclass it
+│   │   └── auth.py               # SignupRequest, LoginRequest, UserSession
 │   ├── routers/                  # one router per docs/api_contract.md section (auth, startups, problems, pilots, ...)
 │   ├── services/
+│   │   ├── auth_service.py       # register_user, authenticate, build_session (UserSession + dpiit join)
 │   │   ├── ml_client.py          # httpx wrapper for nlp /extract, /summarize, /rank
 │   │   ├── eligibility.py        # rule engine — runs automatically on solution submission, build early
 │   │   └── pilot_state_machine.py # enforces the pilot status transitions server-side
-│   └── auth/                     # password hashing, JWT issue/verify, role-based dependencies
+│   └── auth/                     # security.py (bcrypt, JWT), dependencies.py (get_current_user, require_role)
 └── tests/
+    ├── conftest.py               # db fixture: live sih_db, each test wrapped in a transaction that's rolled back
+    ├── test_auth.py              # signup/login/me/require_role
     └── test_models_match_schema.py  # reflects the live DB and fails if models drift from schema.sql
 ```
 
@@ -128,7 +137,7 @@ pip install -r requirements.txt
 Copy-Item .env.example .env        # fill in postgres password
 python init_db.py                  # create sih_db if missing + apply schema (no-op if already applied)
 python init_db.py --reset          # DEV ONLY: drop everything and re-apply
-pytest                             # model/schema drift test + replication status CHECK test
+pytest                             # drift test, replication CHECK test, auth tests (all roll back; no rows left behind)
 uvicorn app.main:app --reload --port 8000   # GET /health checks DB connectivity
 ```
 

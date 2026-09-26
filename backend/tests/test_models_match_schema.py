@@ -55,6 +55,13 @@ def test_foreign_keys_match(inspector, table_name):
     assert db_fks == model_fks
 
 
+@pytest.mark.parametrize("table_name", sorted(MODEL_TABLES))
+def test_unique_constraints_match(inspector, table_name):
+    db_uniques = {tuple(uc["column_names"]) for uc in inspector.get_unique_constraints(table_name)}
+    model_uniques = {(c.name,) for c in MODEL_TABLES[table_name].columns if c.unique}
+    assert db_uniques == model_uniques
+
+
 @pytest.mark.parametrize("bad_status", ["rejected", None])
 def test_replication_status_rejects_invalid(bad_status):
     with engine.connect() as conn:

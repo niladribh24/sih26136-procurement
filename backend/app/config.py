@@ -12,6 +12,8 @@ class Settings(BaseSettings):
 
     database_url: str
     jwt_secret: str
+    # 24h — matches the frontend's samarth_session_role cookie max-age.
+    jwt_expire_minutes: int = 1440
     ml_service_url: str = "http://localhost:8001"
     frontend_url: str = "http://localhost:3000"
 

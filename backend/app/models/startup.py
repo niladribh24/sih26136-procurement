@@ -13,7 +13,9 @@ class StartupProfile(Base):
     __tablename__ = "startup_profiles"
 
     id: Mapped[uuid.UUID] = uuid_pk()
-    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True
+    )
     dpiit_number: Mapped[str | None] = mapped_column(Text)
     dpiit_verified: Mapped[bool | None] = mapped_column(Boolean, server_default=false())
     turnover_band: Mapped[str | None] = mapped_column(Text)
