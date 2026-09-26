@@ -232,7 +232,9 @@ CREATE TABLE replication_requests (
     target_quantity             INT,                                  -- frontend .targetQuantity
     target_budget                NUMERIC,                              -- frontend .targetBudget (optional)
     deployment_timeline_weeks   INT,                                  -- frontend .deploymentTimelineWeeks (optional)
-    status                      TEXT DEFAULT 'pending',               -- pending / approved / in_pilot (frontend enum — was requested/approved/rejected)
+    status                      TEXT NOT NULL DEFAULT 'pending'       -- pending / approved / in_pilot (frontend enum — was requested/approved/rejected)
+                                    CONSTRAINT replication_requests_status_check
+                                    CHECK (status IN ('pending', 'approved', 'in_pilot')),
     requested_at                TIMESTAMPTZ DEFAULT now()
 );
 
@@ -242,3 +244,7 @@ CREATE INDEX ON solution_abstracts (startup_id);
 CREATE INDEX ON pilots (problem_id);
 CREATE INDEX ON pilots (startup_id);
 CREATE INDEX ON pilot_milestones (pilot_id);
+-- Postgres doesn't auto-index foreign key columns; these back "all X for this solution" lookups.
+CREATE INDEX ON evaluations (solution_id);
+CREATE INDEX ON eligibility_checks (solution_id);
+CREATE INDEX ON replication_requests (proven_solution_id);
