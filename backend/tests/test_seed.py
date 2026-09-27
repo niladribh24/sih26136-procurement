@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import seed
-from app.models import EligibilityCheck, Problem, SolutionAbstract, StartupDocument, StartupProfile, User
+from app.models import EligibilityCheck, Evaluation, Pilot, PilotStatusHistory, Problem, SolutionAbstract, StartupDocument, StartupProfile, User
 
 
 def _count(db: Session, stmt) -> int:
@@ -48,6 +48,16 @@ def test_seed_with_ml_down(db: Session, upload_dir: Path):
     assert sum(c.trl_ok is False for c in by_title.values()) == 1
     assert all(c.dpiit_ok and c.turnover_ok for c in by_title.values())
 
+    # One active pilot (eligibility pending with ML down still allows it).
+    pilot = db.scalar(select(Pilot).where(Pilot.problem_id.in_(problem_ids)))
+    assert pilot.status == "active"
+    assert [m.status for m in pilot.milestones] == ["verified", "submitted", "pending"]
+    assert [m.tranche_disbursed for m in pilot.milestones] == [True, False, False]
+    history = db.scalars(select(PilotStatusHistory.to_status).where(PilotStatusHistory.pilot_id == pilot.id)).all()
+    assert sorted(history) == sorted(["proposed", "under_review", "approved", "active"])
+    # Scored by the evaluator, so the officer did the verifying (conflict of interest rule).
+    assert db.scalar(select(Evaluation).where(Evaluation.solution_id == pilot.solution_id)) is not None
+
 
 def test_generated_pdfs_have_text():
     from io import BytesIO
@@ -66,7 +76,7 @@ def test_clear_removes_rows_and_files(db: Session, upload_dir: Path):
     seed.seed(db)
     counts = seed.clear(db)
 
-    assert counts["users"] == 8 and counts["problems"] == 4 and counts["solutions"] == 9
+    assert counts["users"] == 8 and counts["problems"] == 4 and counts["solutions"] == 9 and counts["pilots"] == 1
     assert not seed.is_seeded(db)
     assert _count(db, select(Problem).where(Problem.title == seed.PROBLEMS[0]["title"])) == 0
     assert list(upload_dir.rglob("*.pdf")) == []

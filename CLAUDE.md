@@ -10,16 +10,16 @@ The repo is split into three independently-owned services that were built in par
 
 ```
 frontend/   Next.js 16 web app
-backend/    FastAPI skeleton (config, DB, ORM models, /health) + schema.sql + docs — no domain endpoints yet
+backend/    FastAPI backend: auth, Identify stage, rubric, pilots/milestones + schema.sql + docs
 nlp/        FastAPI microservice (Python) — extract/summarize/rank pipelines
 docs/       Cross-cutting specs (NLP requirements, frontend API contract, demo runbook)
 ```
 
 **Current reality check:** `frontend/lib/api.ts` has two implementations of `ApiService`, and `export const api` picks one from `NEXT_PUBLIC_USE_MOCK_API`:
-- **`realApi`** (the default) calls the FastAPI backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`), using the URLs in `backend/docs/api_contract.md`. It covers auth, profile/documents, problems, solutions, ranking, and eligibility.
+- **`realApi`** (the default) calls the FastAPI backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`), using the URLs in `backend/docs/api_contract.md`. It covers auth, profile/documents, problems, solutions, ranking, eligibility, rubric scoring, and pilots/milestones/tranches.
 - **`mockApi`** (`NEXT_PUBLIC_USE_MOCK_API=true`) is the original `localStorage` mock, and needs no backend.
 
-Methods with no backend endpoint yet (pilots, milestones, tranches, scale, replication, `logAuditEntry`) are spread from `mockApi` into `realApi`, so they stay on `localStorage` even in backend mode. `updateSolutionRubric` throws a 501 in backend mode. Before changing either side, check which methods are actually real in `realApi`.
+Methods with no backend endpoint yet (scale, replication, `logAuditEntry`) are spread from `mockApi` into `realApi`, so they stay on `localStorage` even in backend mode. Before changing either side, check which methods are actually real in `realApi`.
 
 ## Working agreement (read this first)
 
@@ -97,6 +97,30 @@ These decisions were made explicitly by the user and applied to `backend/schema.
     - **Demo personas:** in backend mode the 1-click persona buttons (landing, login, header) log in for real as the `seed.py` accounts (`SEED_PERSONAS` in `lib/auth.ts`). In mock mode they use the old `DEMO_PERSONAS`.
     - **CORS:** `FRONTEND_URL` may be comma-separated. `Settings.cors_origins` adds each origin's `localhost` or `127.0.0.1` twin. `tests/test_cors.py` covers this.
 
+18. Evaluation and the Pilot stage are built (`services/pilot_service.py`, `services/pilot_state_machine.py`, `routers/pilots.py`; endpoints in `backend/docs/api_contract.md`).
+    - **Schema:**
+      - `pilot_status` gained `procured`, the frontend's terminal `"Procured"`.
+      - `pilots` gained `code` (from `pilot_code_seq` → `PLT-2026-001`), `solution_id UNIQUE` (one pilot per solution), and `independent_validator_name`.
+      - `pilot_milestones` gained `sequence`, `description`, `target_kpi`, `achieved_kpi`, `verified_by` (FK users), `verified_by_name`, `verified_at`, `verification_remarks`, and `verification_report_url`. `completed_at` is unused.
+      - New table `pilot_status_history(pilot_id, from_status, to_status, changed_by, changed_at)`. It records every pilot status change and is written only by `pilot_state_machine`.
+      - Everything else on `Pilot`/`Milestone` is derived at read time: department, lead officer, `durationWeeks`, `deliverableDueWeek`, and `completionDate`.
+    - **Rubric:** `POST /api/solutions/:id/rubric` can be called by the owning officer or any evaluator. Each save is a new `evaluations` row, and the latest is `rubricScore`.
+    - **Pilots:**
+      - Approving a proposal (`POST /api/pilots`, owning officer only) creates the pilot as **Approved**, with history proposed→under_review→approved. It also shortlists the solution and sets the problem to `pilot_active`.
+      - The officer then starts the pilot (→ Active) from `PilotStatusControl` on the gov pilot page.
+      - Ineligible proposals get a 409, both here and on `PATCH status → shortlisted`. Pending eligibility is allowed.
+    - **Milestones:**
+      - The startup submits only while the pilot is Active.
+      - The owning officer or any evaluator verifies a *submitted* milestone, except whoever saved a rubric on that solution (403, conflict of interest).
+      - Verifying one disburses its tranche.
+      - Failing one increments `failed_milestones_count`.
+      - When the last milestone is verified, the pilot moves to Completed automatically.
+    - **Frontend:**
+      - `lib/pilotStateMachine.ts` mirrors `TRANSITIONS`.
+      - The mock also creates pilots as Approved and rejects illegal status jumps.
+      - `apiFetchOrNull` takes fetch options.
+    - **Seed:** `seed.py` adds one active pilot on P1 (KrishiNetra): the evaluator scores it, the officer approves and starts it, milestone 1 is verified and paid, and milestone 2 is submitted. `clear()` deletes pilots first, because pilots' FKs have no ON DELETE CASCADE.
+
 One knock-on rename made *because of* #4, not an independent decision: `pilots.missed_milestones_count` was renamed to `failed_milestones_count`, since "missed" is no longer a valid milestone status — flagged here in case that's not wanted.
 
 Known gap, not yet decided: `frontend/lib/api.ts`'s `logAuditEntry()` has no backing table in `schema.sql` at all. (The other old gap, the `extracted_tags` shape, was resolved in #15.)
@@ -109,7 +133,7 @@ Known gap, not yet decided: `frontend/lib/api.ts`'s `logAuditEntry()` has no bac
 - **Outbound calls:** `httpx` for the backend → ML service calls (never the reverse, never frontend → ML directly)
 
 ### `backend/` folder structure
-The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test), plus auth, the startup/problem/solution endpoints, the ML integration, and the eligibility engine. The pilot, evaluation, and scale modules are still planned and get created as endpoints are built. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
+The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test), plus auth, the startup/problem/solution endpoints, the ML integration, the eligibility engine, rubric scoring, and pilots/milestones. The scale module is still planned. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
 
 ```
 backend/
@@ -142,8 +166,9 @@ backend/
 │   │   ├── problem.py            # ProblemCreate/Update/Out (= types.ts Problem)
 │   │   ├── solution.py           # SolutionSubmit (multipart fields), SolutionOut (= types.ts Solution)
 │   │   ├── eligibility.py        # EligibilityOut (no types.ts equivalent; defined in api_contract.md)
+│   │   ├── pilot.py              # PilotOut/MilestoneOut (= types.ts Pilot/Milestone), PilotCreate, deliverable/verify bodies
 │   │   └── ml.py                 # copies of nlp/app/schemas.py response models; every ML response is validated against them
-│   ├── routers/                  # one router per docs/api_contract.md section: auth, startups, problems, solutions (pilots, ... to come)
+│   ├── routers/                  # one router per docs/api_contract.md section: auth, startups, problems, solutions, pilots (scale to come)
 │   ├── services/
 │   │   ├── auth_service.py       # register_user, authenticate, build_session (UserSession + dpiit join)
 │   │   ├── startup_service.py    # profile read/update, document upload
@@ -153,7 +178,8 @@ backend/
 │   │   ├── ml_client.py          # httpx wrapper for nlp /extract, /summarize, /rank; every failure → MLUnavailable
 │   │   ├── ml_sync.py            # runs the pipelines + stores results (extract→profile, summarize, rank_problem, retry_pending)
 │   │   ├── eligibility.py        # rule engine (@rule registry) — runs on submission, re-runs when ML fills the domain
-│   │   └── pilot_state_machine.py # enforces the pilot status transitions server-side
+│   │   ├── pilot_service.py      # pilot create/read, milestone deliverable/verify/disburse, conflict-of-interest check
+│   │   └── pilot_state_machine.py # TRANSITIONS + transition(): the only writer of pilots.status; records pilot_status_history
 │   └── auth/                     # security.py (bcrypt, JWT), dependencies.py (get_current_user, require_role)
 └── tests/
     ├── conftest.py               # db fixture: live sih_db, each test wrapped in a transaction that's rolled back; uploads → tmp_path; autouse FakeML (down by default)
@@ -163,6 +189,9 @@ backend/
     ├── test_problems.py          # problem CRUD + role rules
     ├── test_solutions.py         # submit, visibility, status, PDF download
     ├── test_eligibility.py       # rules unit-tested, pass/fail/pending end to end, ML re-evaluation, endpoint roles
+    ├── test_rubric.py            # rubric save, ranges, roles, latest wins
+    ├── test_pilots.py            # pilot creation (ineligible/duplicate/422), visibility, roles, milestone flow, COI
+    ├── test_pilot_state_machine.py # every (from, to) pair: legal ones recorded in history, the rest 400
     ├── test_ml.py                # extract/summarize/rank wiring, pending on failure, force-rank, retry_pending
     ├── test_cors.py              # the frontend origin (localhost and 127.0.0.1 :3000) passes CORS preflight; unknown origins don't
     ├── test_seed.py              # seed.py with ML down: counts, pending ML fields, the TRL failure, --clear
@@ -206,7 +235,7 @@ pip install -r requirements.txt
 Copy-Item .env.example .env        # fill in postgres password
 python init_db.py                  # create sih_db if missing + apply schema (no-op if already applied)
 python init_db.py --reset          # DEV ONLY: drop everything and re-apply
-pytest                             # drift, auth, startup/problem/solution tests (all roll back; no rows or files left behind)
+pytest                             # drift, auth, startup/problem/solution/pilot tests (all roll back; no rows or files left behind)
 uvicorn app.main:app --reload --port 8000   # GET /health checks DB connectivity
 python retry_ml.py                 # fill in ML results left pending while the ML service was down
 python seed.py                     # demo data + prints logins (password Samarth@2026); --reset rebuilds it, --clear removes it

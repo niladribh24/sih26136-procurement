@@ -31,6 +31,16 @@ class SolutionSubmit(CamelModel):
         return v
 
 
+class RubricIn(CamelModel):
+    """POST /api/solutions/:id/rubric. The maxima are the 30/20/20/30 scale in types.ts."""
+
+    technical_merit: Decimal = Field(ge=0, le=30)
+    cost_realism: Decimal = Field(ge=0, le=20)
+    team_capability: Decimal = Field(ge=0, le=20)
+    timeline_viability: Decimal = Field(ge=0, le=30)
+    comments: str | None = None
+
+
 class RubricScore(CamelModel):
     technical_merit: float  # /30
     cost_realism: float  # /20

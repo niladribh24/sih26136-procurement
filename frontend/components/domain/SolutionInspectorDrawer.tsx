@@ -50,6 +50,8 @@ export interface SolutionInspectorDrawerProps {
   onClose: () => void;
   solution: Solution | null;
   problem: Problem;
+  /** Called with the saved solution (e.g. its new rubricScore) so the list can update. */
+  onSolutionUpdated?: (solution: Solution) => void;
 }
 
 export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = ({
@@ -57,6 +59,7 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
   onClose,
   solution,
   problem,
+  onSolutionUpdated,
 }) => {
   const [showPilotSetup, setShowPilotSetup] = useState(false);
 
@@ -121,12 +124,13 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
   const handleSaveRubric = async () => {
     setRubricError("");
     try {
-      await api.updateSolutionRubric(solution.id, {
+      const updated = await api.updateSolutionRubric(solution.id, {
         technicalMerit: techMerit,
         costRealism: costRealism,
         teamCapability: teamCap,
         timelineViability: timelineViab,
       });
+      if (updated) onSolutionUpdated?.({ ...updated });
     } catch (err) {
       setRubricError(errorMessage(err, "Could not save the rubric score."));
       return;
@@ -134,6 +138,10 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
     setSavedRubric(true);
     setTimeout(() => setSavedRubric(false), 2000);
   };
+
+  // The backend refuses to pilot an ineligible proposal (409); say why up front instead.
+  const failedRules = eligibility?.status === "ineligible" ? eligibility.rules.filter((r) => r.status === "fail") : [];
+  const isIneligible = failedRules.length > 0;
 
   const handleRecheckEligibility = async () => {
     const id = solution.id;
@@ -393,19 +401,35 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
 
         {/* Pilot Transition Section */}
         {!showPilotSetup ? (
-          <div className="p-4 bg-[var(--surface)] border border-[var(--line)] rounded-[8px] flex items-center justify-between">
+          <div className="p-4 bg-[var(--surface)] border border-[var(--line)] rounded-[8px] flex items-center justify-between gap-3">
             <div>
               <h4 className="text-xs font-bold text-[var(--ink)]">
                 Ready to Initiate Field Trial?
               </h4>
-              <p className="text-[11px] text-[var(--ink-muted)]">
-                Approve proposal and configure milestone timeline and payment tranches.
-              </p>
+              {isIneligible ? (
+                <div className="text-[11px] text-[var(--danger)] space-y-0.5">
+                  <p>Ineligible proposals can&apos;t be approved for a pilot:</p>
+                  <ul className="list-disc pl-4">
+                    {failedRules.map((r) => (
+                      <li key={r.rule}>
+                        {r.label}: {r.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-[11px] text-[var(--ink-muted)]">
+                  Approve proposal and configure milestone timeline and payment tranches.
+                </p>
+              )}
             </div>
             <Button
               variant="primary"
               size="sm"
+              className="shrink-0"
               onClick={() => setShowPilotSetup(true)}
+              disabled={isIneligible}
+              title={isIneligible ? "This proposal failed eligibility screening" : undefined}
             >
               <Rocket className="w-3.5 h-3.5" />
               <span>Approve & Configure Pilot</span>

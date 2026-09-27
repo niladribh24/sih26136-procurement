@@ -94,9 +94,9 @@ export async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promis
 }
 
 /** Returns null on 404 instead of throwing — matches the mock's `find(...) || null` getters. */
-export async function apiFetchOrNull<T>(path: string): Promise<T | null> {
+export async function apiFetchOrNull<T>(path: string, opts?: FetchOptions): Promise<T | null> {
   try {
-    return await apiFetch<T>(path);
+    return await apiFetch<T>(path, opts);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null;
     throw err;

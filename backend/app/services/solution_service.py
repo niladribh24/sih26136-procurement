@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from collections.abc import Sequence
 
 from fastapi import HTTPException, UploadFile, status
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session, contains_eager
 
 from app.models import Evaluation, Problem, SolutionAbstract, StartupProfile, User
 from app.schemas.common import int_to_trl, to_date_str, trl_to_int
-from app.schemas.solution import RubricScore, SolutionOut, SolutionSubmit
+from app.schemas.solution import RubricIn, RubricScore, SolutionOut, SolutionSubmit
 from app.services import eligibility, ml_sync
 from app.services.ml_client import MLUnavailable
 from app.services.uploads import SOLUTIONS, delete_upload, save_pdf
@@ -190,5 +191,26 @@ def check_can_manage(db: Session, user: User, problem_id: uuid.UUID) -> None:
 
 def update_status(db: Session, user: User, solution: SolutionAbstract, new_status: str) -> None:
     check_can_manage(db, user, solution.problem_id)
+    if new_status == "shortlisted" and solution.status != "shortlisted":
+        eligibility.ensure_not_ineligible(db, solution, "shortlisted")
     solution.status = new_status
+    db.commit()
+
+
+def save_rubric(db: Session, user: User, solution: SolutionAbstract, req: RubricIn) -> None:
+    """Each save is a new evaluations row (kept as history); the newest one is what
+    Solution.rubricScore shows (_latest_rubrics)."""
+    check_can_manage(db, user, solution.problem_id)
+    db.add(Evaluation(
+        solution_id=solution.id,
+        evaluator_id=user.id,
+        technical_merit=req.technical_merit,
+        cost_realism=req.cost_realism,
+        team_capability=req.team_capability,
+        timeline_viability=req.timeline_viability,
+        comments=req.comments,
+        # Set here rather than by the DB default: Postgres now() is the *transaction's* start
+        # time, so two saves in one transaction would tie and "latest" would be arbitrary.
+        evaluated_at=datetime.now(timezone.utc),
+    ))
     db.commit()

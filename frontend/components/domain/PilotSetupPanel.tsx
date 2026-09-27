@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ShieldCheck, Plus, Trash2, Rocket, AlertCircle, Clock } from "lucide-react";
 import { Solution, Problem } from "@/lib/types";
 import { api } from "@/lib/api";
+import { errorMessage } from "@/lib/http";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -32,6 +33,7 @@ export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
     "Prof. K. Rao (Aerospace, IIT Delhi)"
   );
   const [isLaunching, setIsLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState("");
 
   const [milestones, setMilestones] = useState([
     {
@@ -63,6 +65,7 @@ export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
   const handleLaunchPilot = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLaunching(true);
+    setLaunchError("");
 
     const numericBudget = parseInt(totalBudget, 10) || 2850000;
 
@@ -99,6 +102,9 @@ export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
       await api.updateSolutionStatus(solution.id, "shortlisted");
       onClose();
       router.push(`/gov/pilots/${createdPilot.id}`);
+    } catch (err) {
+      // e.g. 409: the proposal is ineligible, or already has a pilot.
+      setLaunchError(errorMessage(err, "Could not create the pilot."));
     } finally {
       setIsLaunching(false);
     }
@@ -186,12 +192,19 @@ export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
           </div>
         </div>
 
+        {launchError && (
+          <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{launchError}</span>
+          </div>
+        )}
+
         <div className="pt-3 border-t border-[var(--line)] flex justify-end gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" size="sm" disabled={isLaunching}>
-            {isLaunching ? "Initializing Pilot..." : "Sanction & Launch Active Pilot →"}
+            {isLaunching ? "Creating Pilot..." : "Approve Pilot & Open Tracker →"}
           </Button>
         </div>
       </form>

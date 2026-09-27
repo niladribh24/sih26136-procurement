@@ -125,3 +125,48 @@ def text_pdf(text: str) -> bytes:
     out += b"".join(b"%010d 00000 n \n" % off for off in offsets)
     out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objects) + 1, xref)
     return bytes(out)
+
+
+def declare_turnover(client, startup_token: str, band: str = "₹1Cr–₹5Cr") -> None:
+    """Without a turnover band the eligibility turnover rule fails (see eligibility.py)."""
+    res = client.patch("/api/startups/me", json={"turnoverBand": band}, headers=auth(startup_token))
+    assert res.status_code == 200, res.text
+
+
+def pilot_body(solution_id: str, **overrides) -> dict:
+    body = {
+        "solutionId": solution_id,
+        "independentValidatorName": "Prof. K. Rao (IIT Delhi)",
+        "durationWeeks": 8,
+        "totalBudget": 1_000_000,
+        "milestones": [
+            {"sequence": 1, "title": "Bench calibration", "description": "Lab sync", "targetKPI": "< 0.1% drops",
+             "deliverableDueWeek": 2, "tranchePercentage": 30},
+            {"sequence": 2, "title": "Field trials", "description": "Forest testbed", "targetKPI": "< 8% FP",
+             "deliverableDueWeek": 5, "tranchePercentage": 70},
+        ],
+    }
+    body.update(overrides)
+    return body
+
+
+def create_pilot(client, officer_token: str, solution_id: str, **overrides) -> dict:
+    res = client.post("/api/pilots", json=pilot_body(solution_id, **overrides), headers=auth(officer_token))
+    assert res.status_code == 201, res.text
+    return res.json()
+
+
+def pilot_setup(client) -> dict:
+    """An officer's problem, a startup's (eligibility-pending, so allowed) solution to it, and
+    an Approved pilot for that solution. Returns the tokens and objects."""
+    officer = signup(client, "govt_officer")
+    startup = signup(client, "startup")
+    declare_turnover(client, startup["token"])
+    problem = create_problem(client, officer["token"])
+    solution = submit_solution(client, startup["token"], problem["id"])
+    pilot = create_pilot(client, officer["token"], solution["id"])
+    return {"officer": officer, "startup": startup, "problem": problem, "solution": solution, "pilot": pilot}
+
+
+def set_pilot_status(client, token: str, pilot_id: str, status: str):
+    return client.patch(f"/api/pilots/{pilot_id}/status", json={"status": status}, headers=auth(token))

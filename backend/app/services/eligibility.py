@@ -19,6 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
+from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -229,3 +230,15 @@ def to_out(check: EligibilityCheck) -> EligibilityOut:
         checked_at=check.checked_at.isoformat() if check.checked_at else "",
         rules=rules,
     )
+
+
+def ensure_not_ineligible(db: Session, solution: SolutionAbstract, action: str) -> None:
+    """409 if the solution failed eligibility, naming the failed rules. Pending is allowed:
+    it only means ML hasn't classified the startup yet, not that anything failed."""
+    check = get_check(db, solution.id) or run_for_solution(db, solution)
+    out = to_out(check)
+    if out.status == "ineligible":
+        reasons = "; ".join(f"{r.label}: {r.reason}" for r in out.rules if r.status == "fail")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail=f"This proposal is ineligible and can't be {action}. {reasons}"
+        )

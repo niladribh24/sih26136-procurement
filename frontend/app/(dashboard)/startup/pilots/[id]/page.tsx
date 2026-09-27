@@ -14,6 +14,7 @@ import {
   IndianRupee,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { errorMessage } from "@/lib/http";
 import { Pilot, Milestone } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -34,17 +35,21 @@ export default function StartupPilotDetailPage() {
   const [achievedKPI, setAchievedKPI] = useState("");
   const [fileName, setFileName] = useState("Field_Trial_Run_Logs.pdf");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
-    api.getPilot(pilotId).then((data: Pilot | null) => {
-      setPilot(data);
-      setLoading(false);
-    });
+    api
+      .getPilot(pilotId)
+      .then((data: Pilot | null) => setPilot(data))
+      .catch((err: unknown) => setLoadError(errorMessage(err, "Could not load this pilot.")))
+      .finally(() => setLoading(false));
   }, [pilotId]);
 
   const handleOpenUpload = (milestone: Milestone) => {
     setActiveMilestone(milestone);
     setAchievedKPI(milestone.achievedKPI || "");
+    setSubmitError("");
   };
 
   const handleSubmitDeliverable = async (e: React.FormEvent) => {
@@ -52,6 +57,7 @@ export default function StartupPilotDetailPage() {
     if (!pilot || !activeMilestone) return;
 
     setIsSubmitting(true);
+    setSubmitError("");
     try {
       const updated = await api.submitMilestoneDeliverable(
         pilot.id,
@@ -61,6 +67,8 @@ export default function StartupPilotDetailPage() {
       );
       if (updated) setPilot({ ...updated });
       setActiveMilestone(null);
+    } catch (err) {
+      setSubmitError(errorMessage(err, "Could not submit the deliverable."));
     } finally {
       setIsSubmitting(false);
     }
@@ -71,8 +79,17 @@ export default function StartupPilotDetailPage() {
   }
 
   if (!pilot) {
-    return <div className="p-8 text-center text-xs text-[var(--ink)]">Pilot record not found.</div>;
+    return (
+      <div className="p-8 text-center text-xs text-[var(--ink)]">{loadError || "Pilot record not found."}</div>
+    );
   }
+
+  // Deliverables are accepted only while the trial is running (the backend enforces this too).
+  const isActive = pilot.status === "Active";
+  const inactiveReason =
+    pilot.status === "Approved" || pilot.status === "Proposed" || pilot.status === "Under review"
+      ? "Deliverables open once the department starts the pilot."
+      : `Pilot is ${pilot.status.toLowerCase()}; deliverables are closed.`;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -100,9 +117,17 @@ export default function StartupPilotDetailPage() {
 
       {/* Milestones List */}
       <div className="space-y-4">
-        <h3 className="text-base font-bold text-[var(--ink)] font-editorial">
-          Milestone Deliverables & Tranche Schedule
-        </h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-base font-bold text-[var(--ink)] font-editorial">
+            Milestone Deliverables & Tranche Schedule
+          </h3>
+          {!isActive && (
+            <span className="text-xs text-[var(--ink-muted)] flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              {inactiveReason}
+            </span>
+          )}
+        </div>
 
         {pilot.milestones.map((milestone) => (
           <div
@@ -206,7 +231,7 @@ export default function StartupPilotDetailPage() {
                 )}
               </div>
 
-              {milestone.status !== "verified" && (
+              {milestone.status !== "verified" && isActive && (
                 <Button
                   variant={milestone.status === "failed" ? "danger" : milestone.status === "submitted" ? "secondary" : "primary"}
                   size="sm"
@@ -267,6 +292,13 @@ export default function StartupPilotDetailPage() {
                 Choose Deliverable Archive / PDF
               </label>
             </div>
+
+            {submitError && (
+              <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{submitError}</span>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-3 border-t border-[var(--line)]">
               <Button

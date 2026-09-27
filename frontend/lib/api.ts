@@ -17,6 +17,7 @@ import {
   Eligibility,
 } from "./types";
 import { USE_MOCK_API } from "./config";
+import { canTransition } from "./pilotStateMachine";
 import { ApiError, apiFetch, apiFetchOrNull } from "./http";
 import { DEMO_PASSWORD, DEMO_PERSONAS, getSession, setSession } from "./auth";
 import {
@@ -122,7 +123,7 @@ export interface ApiService {
 
 // ---------------------------------------------------------------------------
 // Mock implementation (localStorage). Selected with NEXT_PUBLIC_USE_MOCK_API=true.
-// In backend mode it still serves the pilot/scale methods (see realApi below).
+// In backend mode it still serves the scale/replication/audit methods (see realApi below).
 // ---------------------------------------------------------------------------
 const mockApi: ApiService = {
   // Problems
@@ -255,7 +256,7 @@ const mockApi: ApiService = {
       id: pilotId,
       code: `PLT-2026-${Math.floor(10 + Math.random() * 90)}`,
       startDate: new Date().toISOString().split("T")[0],
-      status: "Active",
+      status: "Approved", // like the backend: the officer starts it from the pilot page
       milestones: (pilotData.milestones || []).map((m: any) => ({
         ...m,
         pilotId,
@@ -282,6 +283,9 @@ const mockApi: ApiService = {
     const pilots = await mockApi.getPilots();
     const pilot = pilots.find((p: Pilot) => p.id === pilotId);
     if (!pilot) return null;
+    if (!canTransition(pilot.status, status)) {
+      throw new ApiError(400, `Cannot move pilot from "${pilot.status}" to "${status}".`);
+    }
     pilot.status = status;
     setStored(STORAGE_KEYS.PILOTS, pilots);
     return pilot;
@@ -546,8 +550,8 @@ const mockApi: ApiService = {
 
 // ---------------------------------------------------------------------------
 // Real implementation: calls the FastAPI backend (backend/docs/api_contract.md).
-// Pilot, milestone, scale, replication and audit methods have no backend
-// endpoints yet, so they fall through to the mock via the spread below.
+// Scale, replication and audit methods have no backend endpoints yet, so they
+// fall through to the mock via the spread below.
 // ---------------------------------------------------------------------------
 const enc = encodeURIComponent;
 
@@ -595,13 +599,57 @@ const realApi: ApiService = {
     }
   },
 
-  updateSolutionRubric: async () => {
-    // POST /api/solutions/:id/rubric is in the contract but not built yet.
-    throw new ApiError(501, "Rubric scoring isn't connected to the backend yet.");
-  },
+  updateSolutionRubric: (solutionId, rubric) =>
+    apiFetchOrNull<Solution>(`/api/solutions/${enc(solutionId)}/rubric`, { method: "POST", json: rubric }),
 
   rankSolutions: (problemId) =>
     apiFetch<Solution[]>(`/api/problems/${enc(problemId)}/solutions/rank`, { method: "POST" }),
+
+  // Pilots & milestones. Every write returns the whole updated Pilot.
+  getPilots: () => apiFetch<Pilot[]>("/api/pilots"),
+
+  getPilot: (id) => apiFetchOrNull<Pilot>(`/api/pilots/${enc(id)}`),
+
+  createPilot: (pilotData) =>
+    // The backend derives problem, startup, department, lead officer and tranche amounts from
+    // the solution, so only what the officer actually chose is sent.
+    apiFetch<Pilot>("/api/pilots", {
+      method: "POST",
+      json: {
+        solutionId: pilotData.solutionId,
+        independentValidatorName: pilotData.independentValidatorName,
+        durationWeeks: pilotData.durationWeeks,
+        totalBudget: pilotData.totalBudget,
+        milestones: pilotData.milestones.map((m) => ({
+          sequence: m.sequence,
+          title: m.title,
+          description: m.description,
+          targetKPI: m.targetKPI,
+          deliverableDueWeek: m.deliverableDueWeek,
+          tranchePercentage: m.tranchePercentage,
+        })),
+      },
+    }),
+
+  updatePilotStatus: (pilotId, status) =>
+    apiFetchOrNull<Pilot>(`/api/pilots/${enc(pilotId)}/status`, { method: "PATCH", json: { status } }),
+
+  verifyMilestone: (pilotId, milestoneId, verifiedBy, remarks, status = "verified", verificationReportUrl) =>
+    apiFetchOrNull<Pilot>(`/api/pilots/${enc(pilotId)}/milestones/${enc(milestoneId)}/verify`, {
+      method: "PATCH",
+      json: { verifiedBy, remarks, status, verificationReportUrl },
+    }),
+
+  disburseTranche: (pilotId, milestoneId) =>
+    apiFetchOrNull<Pilot>(`/api/pilots/${enc(pilotId)}/milestones/${enc(milestoneId)}/disburse`, {
+      method: "PATCH",
+    }),
+
+  submitMilestoneDeliverable: (pilotId, milestoneId, achievedKPI, fileUrl) =>
+    apiFetchOrNull<Pilot>(`/api/pilots/${enc(pilotId)}/milestones/${enc(milestoneId)}/deliverable`, {
+      method: "PATCH",
+      json: { achievedKPI, fileUrl },
+    }),
 
   // Eligibility
   getEligibility: (solutionId) => apiFetch<Eligibility>(`/api/solutions/${enc(solutionId)}/eligibility`),

@@ -7,7 +7,8 @@
 
 Everything goes through the same service code as real requests: signup, profile update,
 PDF upload (so ML /extract tags the startups), problem creation, solution submission (so
-/summarize and the eligibility engine run), then one /rank per problem. If the ML service
+/summarize and the eligibility engine run), one /rank per problem, then one active pilot
+(evaluator rubric, officer approval, a verified and a submitted milestone). If the ML service
 is down, everything is still seeded and the ML fields stay pending; run `python retry_ml.py`
 once it's up to fill them in.
 
@@ -24,7 +25,7 @@ from datetime import date, timedelta
 from io import BytesIO
 
 import httpx
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import delete, or_, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
@@ -32,12 +33,13 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.models import EligibilityCheck, Problem, SolutionAbstract, StartupDocument, StartupProfile, User
+from app.models import EligibilityCheck, Pilot, Problem, SolutionAbstract, StartupDocument, StartupProfile, User
 from app.schemas.auth import SignupRequest
+from app.schemas.pilot import DeliverableSubmit, MilestoneVerify, PilotCreate
 from app.schemas.problem import ProblemCreate
-from app.schemas.solution import SolutionSubmit
+from app.schemas.solution import RubricIn, SolutionSubmit
 from app.schemas.startup import StartupProfileUpdate
-from app.services import auth_service, ml_sync, problem_service, solution_service, startup_service
+from app.services import auth_service, ml_sync, pilot_service, problem_service, solution_service, startup_service
 from app.services.ml_client import MLUnavailable
 from app.services.uploads import delete_upload
 
@@ -623,6 +625,35 @@ SOLUTIONS = [
 # PDF generation
 # ============================================================================================
 
+# The one pilot: KrishiNetra's paddy diagnosis app on P1, approved by the agri officer after the
+# evaluator scored it (so the officer, not the evaluator, verifies milestones: conflict of interest).
+PILOT = {
+    "problem": "P1",
+    "startup": "krishinetra",
+    "validator": "Dr. Sunita Sen (Senior Scientist, CSIR-NAL)",
+    "rubric": {"technicalMerit": 27, "costRealism": 16, "teamCapability": 18, "timelineViability": 26,
+               "comments": "Field-validated accuracy and a realistic kharif-season plan."},
+    "milestones": [
+        {"sequence": 1, "title": "Localisation and extension worker onboarding",
+         "description": "App localised to Odia and Telugu; 40 village extension workers trained.",
+         "targetKPI": "40 extension workers onboarded, app available in 2 local languages",
+         "deliverableDueWeek": 4, "tranchePercentage": 25},
+        {"sequence": 2, "title": "Kharif farmer rollout",
+         "description": "Farmer onboarding in the pilot district and live diagnosis during kharif.",
+         "targetKPI": "2,000 farmers onboarded; advisory within 24 h of first symptoms",
+         "deliverableDueWeek": 12, "tranchePercentage": 45},
+        {"sequence": 3, "title": "Field validation and outbreak dashboard handover",
+         "description": "Accuracy validated against agronomist field diagnosis; dashboard handed to the district.",
+         "targetKPI": ">= 85% field-validated accuracy on the top 6 paddy diseases and pests",
+         "deliverableDueWeek": 20, "tranchePercentage": 30},
+    ],
+    "deliverables": {
+        1: ("41 extension workers onboarded; Odia and Telugu builds live", "/deliverables/krishinetra-m1-onboarding.pdf"),
+        2: ("2,214 farmers onboarded; median advisory time 6 h", "/deliverables/krishinetra-m2-rollout.pdf"),
+    },
+}
+
+
 def _latin1(text: str) -> str:
     # The built-in Helvetica font only covers Latin-1; swap the few characters we use.
     text = text.replace("₹", "Rs ").replace("–", "-").replace("—", "-").replace("’", "'")
@@ -788,7 +819,46 @@ def seed(db: Session) -> dict[str, Problem]:
             _log(f"    {problem.code}: ranked")
         except MLUnavailable:
             _log(f"    {problem.code}: ML pending")
+
+    seed_pilot(db, gov, profiles, problems)
     return problems
+
+
+def seed_pilot(db: Session, gov: dict[str, User], profiles: dict[str, StartupProfile],
+               problems: dict[str, Problem]) -> None:
+    """One active pilot, built through the same service code the endpoints use."""
+    problem = problems[PILOT["problem"]]
+    officer = db.get(User, problem.posted_by)
+    solution = db.scalar(select(SolutionAbstract).where(
+        SolutionAbstract.problem_id == problem.id, SolutionAbstract.startup_id == profiles[PILOT["startup"]].id
+    ))
+    _log(f"Creating a pilot for {problem.code} <- {STARTUPS_BY_KEY[PILOT['startup']].org_name}...")
+    solution_service.save_rubric(db, gov["evaluator"], solution, RubricIn.model_validate(PILOT["rubric"]))
+    try:
+        pilot_id = pilot_service.create_pilot(db, officer, PilotCreate.model_validate({
+            "solutionId": str(solution.id),
+            "independentValidatorName": PILOT["validator"],
+            "durationWeeks": solution.proposed_duration_weeks,
+            "totalBudget": solution.proposed_cost,
+            "milestones": PILOT["milestones"],
+        }))
+    except HTTPException as e:  # e.g. ML classified the startup into another domain
+        _log(f"    skipped: {e.detail}")
+        return
+    pilot = pilot_service.get_pilot(db, officer, str(pilot_id))
+    pilot_service.update_status(db, officer, pilot, "Active")
+    by_seq = {m.sequence: m.id for m in pilot.milestones}
+    for seq, (kpi, url) in PILOT["deliverables"].items():
+        pilot = pilot_service.get_pilot(db, officer, str(pilot_id))
+        pilot_service.submit_deliverable(db, pilot, by_seq[seq], DeliverableSubmit(achieved_kpi=kpi, file_url=url))
+    pilot = pilot_service.get_pilot(db, officer, str(pilot_id))
+    pilot_service.verify_milestone(db, officer, pilot, by_seq[1], MilestoneVerify(
+        verified_by=PILOT["validator"],
+        remarks="Onboarding records and both language builds inspected on site.",
+        status="verified",
+        verification_report_url="/reports/krishinetra-m1-verification.pdf",
+    ))
+    _log(f"    {pilot.code}: Active; milestone 1 verified and paid, milestone 2 awaiting verification")
 
 
 def clear(db: Session) -> dict[str, int]:
@@ -802,19 +872,25 @@ def clear(db: Session) -> dict[str, int]:
     # Collect file paths before the rows that point at them are gone.
     files = [p for p in db.scalars(select(StartupDocument.file_path).where(StartupDocument.startup_id.in_(profile_ids))) if p]
     files += [p for p in db.scalars(select(SolutionAbstract.file_path).where(solutions)) if p]
+    pilot_ids = select(Pilot.id).where(or_(Pilot.problem_id.in_(problem_ids), Pilot.startup_id.in_(profile_ids)))
     counts = {
         "users": len(db.scalars(user_ids).all()),
         "problems": len(db.scalars(problem_ids).all()),
+        "pilots": len(db.scalars(pilot_ids).all()),
         "solutions": len(db.scalars(select(SolutionAbstract.id).where(solutions)).all()),
         "files": len(files),
     }
 
-    # Problems first: problems.posted_by has no ON DELETE CASCADE, so deleting an officer who
-    # still has problems would fail. Deleting a problem cascades (in Postgres, via ON DELETE
+    # Pilots first: pilots.problem_id / startup_id / solution_id have no ON DELETE CASCADE (a
+    # pilot is a spending record; it shouldn't vanish because a problem was deleted), so they
+    # would block the deletes below. Deleting a pilot cascades to its milestones and history.
+    # Then problems: problems.posted_by has no ON DELETE CASCADE either, so deleting an officer
+    # who still has problems would fail. Deleting a problem cascades (in Postgres, via ON DELETE
     # CASCADE) to its solutions, their eligibility checks and evaluations. Deleting a user
     # then cascades to the startup profile, its documents and its solutions.
     # synchronize_session=False: these are plain SQL DELETEs; we don't reuse any loaded objects.
     try:
+        db.execute(delete(Pilot).where(Pilot.id.in_(pilot_ids)).execution_options(synchronize_session=False))
         db.execute(delete(Problem).where(Problem.id.in_(problem_ids)).execution_options(synchronize_session=False))
         db.execute(delete(User).where(User.id.in_(user_ids)).execution_options(synchronize_session=False))
         db.commit()
@@ -869,6 +945,9 @@ def print_report(db: Session) -> None:
                 verdict = "eligible"
             pending_ml |= sol.match_score is None or domain is None or sol.ai_summary is None
             _log(f"  match {score:>7}  {startup_name:<28} domain {domain or 'pending':<10}  {verdict}")
+    for pilot in db.scalars(select(Pilot).where(Pilot.problem_id.in_([p.id for p in problems]))):
+        done = sum(m.status == "verified" for m in pilot.milestones)
+        _log(f"\nPilot {pilot.code}: {pilot.status}, {done}/{len(pilot.milestones)} milestones verified")
     if pending_ml:
         _log("\nSome ML results are pending. Start the ML service, then run: python retry_ml.py")
 

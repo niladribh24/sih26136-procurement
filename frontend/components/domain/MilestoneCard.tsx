@@ -157,21 +157,15 @@ export const MilestoneCard: React.FC<MilestoneCardProps> = ({
           )}
         </div>
 
-        {milestone.status !== "verified" && canVerify && (
-          <Button
-            variant={milestone.status === "submitted" ? "primary" : "secondary"}
-            size="sm"
-            onClick={() => onVerify(milestone)}
-          >
+        {/* Only a submitted deliverable can be verified or failed (milestone state machine). */}
+        {milestone.status === "submitted" && canVerify && (
+          <Button variant="primary" size="sm" onClick={() => onVerify(milestone)}>
             <FileCheck className="w-3.5 h-3.5" />
-            <span>
-              {milestone.status === "submitted"
-                ? "Verify Deliverable & Authorize Tranche"
-                : milestone.status === "failed"
-                ? "Re-evaluate Corrected Deliverable"
-                : "Record Pre-Verification Audit"}
-            </span>
+            <span>Verify Deliverable & Authorize Tranche</span>
           </Button>
+        )}
+        {milestone.status === "failed" && canVerify && (
+          <span className="text-[11px] text-[var(--ink-muted)]">Awaiting corrected deliverable from the startup</span>
         )}
       </div>
     </div>

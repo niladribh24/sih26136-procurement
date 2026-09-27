@@ -152,15 +152,24 @@ CREATE TABLE evaluations (
 );
 
 -- ---------- Module 5: Pilot Sandbox ----------
+-- 'procured' is the terminal status after recommended_for_procurement (frontend "Procured").
+-- Allowed transitions are enforced in app/services/pilot_state_machine.py, not here.
 CREATE TYPE pilot_status AS ENUM (
     'proposed', 'under_review', 'approved', 'active',
-    'completed', 'failed', 'recommended_for_procurement'
+    'completed', 'failed', 'recommended_for_procurement', 'procured'
 );
+
+-- Feeds pilots.code, same pattern as problem_code_seq.
+CREATE SEQUENCE pilot_code_seq;
 
 CREATE TABLE pilots (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code            TEXT UNIQUE NOT NULL  -- human-readable id, e.g. PLT-2026-012 — frontend Pilot.code
+                        DEFAULT ('PLT-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('pilot_code_seq')::text, 3, '0')),
     problem_id      UUID REFERENCES problems(id),
     startup_id      UUID REFERENCES startup_profiles(id),
+    solution_id     UUID UNIQUE REFERENCES solution_abstracts(id),  -- one pilot per solution; UNIQUE also indexes it
+    independent_validator_name TEXT,      -- frontend Pilot.independentValidatorName (picked by the officer at setup)
     objective       TEXT,
     success_metrics JSONB,                -- [{ "metric": "processing time", "target": "-30%" }]
     status          pilot_status DEFAULT 'proposed',
@@ -184,12 +193,32 @@ CREATE TABLE pilot_milestones (
     title               TEXT NOT NULL,
     due_date            DATE,
     status              milestone_status DEFAULT 'pending',
-    evidence_url        TEXT,
+    sequence            INT,                 -- frontend Milestone.sequence (1, 2, 3...)
+    description         TEXT,
+    target_kpi          TEXT,                -- frontend Milestone.targetKPI
+    achieved_kpi        TEXT,                -- filled in by the startup with the deliverable
+    evidence_url        TEXT,                -- frontend Milestone.deliverableFileUrl
     completed_at        TIMESTAMPTZ,
     tranche_amount      NUMERIC,             -- moved from payment_tranches.amount
     tranche_percentage  NUMERIC,             -- new — frontend Milestone.tranchePercentage
     tranche_disbursed   BOOLEAN DEFAULT FALSE, -- moved from payment_tranches.status = 'released'
-    disbursed_at        TIMESTAMPTZ           -- moved from payment_tranches.released_at
+    disbursed_at        TIMESTAMPTZ,          -- moved from payment_tranches.released_at
+    verified_by         UUID REFERENCES users(id),  -- the account that verified/failed it
+    verified_by_name    TEXT,                 -- the validator name shown in the UI (frontend Milestone.verifiedBy)
+    verified_at         TIMESTAMPTZ,
+    verification_remarks TEXT,
+    verification_report_url TEXT
+);
+
+-- Every pilot status change: who made it and when. Written only by
+-- app/services/pilot_state_machine.py. from_status is NULL for the row that creates the pilot.
+CREATE TABLE pilot_status_history (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pilot_id        UUID NOT NULL REFERENCES pilots(id) ON DELETE CASCADE,
+    from_status     pilot_status,
+    to_status       pilot_status NOT NULL,
+    changed_by      UUID REFERENCES users(id),
+    changed_at      TIMESTAMPTZ DEFAULT now()
 );
 
 -- ---------- Cross-cutting: IP & Data Governance ----------
@@ -279,6 +308,7 @@ CREATE INDEX ON solution_abstracts (startup_id);
 CREATE INDEX ON pilots (problem_id);
 CREATE INDEX ON pilots (startup_id);
 CREATE INDEX ON pilot_milestones (pilot_id);
+CREATE INDEX ON pilot_status_history (pilot_id);
 -- Postgres doesn't auto-index foreign key columns; these back "all X for this solution" lookups.
 CREATE INDEX ON evaluations (solution_id);
 CREATE INDEX ON eligibility_checks (solution_id);

@@ -217,6 +217,10 @@ export default function GovernmentRankedShortlistPage() {
         onClose={() => setInspectingSolution(null)}
         solution={inspectingSolution}
         problem={problem}
+        onSolutionUpdated={(updated) => {
+          setSolutions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+          setInspectingSolution(updated);
+        }}
       />
     </div>
   );

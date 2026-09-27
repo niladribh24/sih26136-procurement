@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,6 +15,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { getSession, subscribeSession } from "@/lib/auth";
+import { errorMessage } from "@/lib/http";
 import { Pilot, Milestone } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +24,9 @@ import { Button } from "@/components/ui/Button";
 import { MilestoneStepper } from "@/components/domain/MilestoneStepper";
 import { MilestoneCard } from "@/components/domain/MilestoneCard";
 import { IndependentValidationDrawer } from "@/components/domain/IndependentValidationDrawer";
+import { PilotStatusControl } from "@/components/domain/PilotStatusControl";
+
+const getServerSnapshot = () => null;
 
 export default function GovernmentPilotTrackerPage() {
   const params = useParams();
@@ -31,12 +36,15 @@ export default function GovernmentPilotTrackerPage() {
   const [pilot, setPilot] = useState<Pilot | null>(null);
   const [loading, setLoading] = useState(true);
   const [verifyingMilestone, setVerifyingMilestone] = useState<Milestone | null>(null);
+  const [actionError, setActionError] = useState("");
+  const session = useSyncExternalStore(subscribeSession, getSession, getServerSnapshot);
 
   const loadPilot = () => {
-    api.getPilot(pilotId).then((data: Pilot | null) => {
-      setPilot(data ? { ...data } : null);
-      setLoading(false);
-    });
+    api
+      .getPilot(pilotId)
+      .then((data: Pilot | null) => setPilot(data ? { ...data } : null))
+      .catch((err: unknown) => setActionError(errorMessage(err, "Could not load this pilot.")))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -45,7 +53,13 @@ export default function GovernmentPilotTrackerPage() {
 
   const handleRecommendProcurement = async () => {
     if (!pilot) return;
-    await api.updatePilotStatus(pilot.id, "Recommended for procurement");
+    setActionError("");
+    try {
+      await api.updatePilotStatus(pilot.id, "Recommended for procurement");
+    } catch (err) {
+      setActionError(errorMessage(err, "Could not recommend this pilot for procurement."));
+      return;
+    }
     router.push(`/gov/pilots/${pilot.id}/procure`);
   };
 
@@ -80,6 +94,10 @@ export default function GovernmentPilotTrackerPage() {
 
   const allMilestonesVerified = pilot.milestones.every((m) => m.status === "verified");
   const isRecommended = pilot.status === "Recommended for procurement" || pilot.status === "Procured";
+  // The backend has the final say (owning officer, conflict of interest); this only hides
+  // actions that can't apply to this role or this pilot status.
+  const isOfficer = session?.role === "govt_officer";
+  const canVerify = pilot.status === "Active" && (isOfficer || session?.role === "evaluator");
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -97,7 +115,7 @@ export default function GovernmentPilotTrackerPage() {
         subtitle={`${pilot.department} · Sanction: ₹${(pilot.totalBudget / 100000).toFixed(1)}L · Duration: ${pilot.durationWeeks} Weeks`}
         badge={<Badge variant="highlight">Stage 2: Milestone Verification</Badge>}
         actions={
-          allMilestonesVerified || isRecommended ? (
+          (allMilestonesVerified && pilot.status === "Completed" && isOfficer) || isRecommended ? (
             <Button
               variant="primary"
               size="md"
@@ -112,7 +130,9 @@ export default function GovernmentPilotTrackerPage() {
             </Button>
           ) : (
             <div className="text-xs font-mono-data text-[var(--ink-muted)]">
-              All milestones must be verified to unlock procurement
+              {pilot.status === "Completed"
+                ? "Awaiting the lead officer's sanction recommendation"
+                : "All milestones must be verified to unlock procurement"}
             </div>
           )
         }
@@ -124,6 +144,15 @@ export default function GovernmentPilotTrackerPage() {
         leadOfficer={pilot.leadOfficerName}
         independentValidator={pilot.independentValidatorName}
       />
+
+      {isOfficer && <PilotStatusControl pilot={pilot} onUpdated={(p) => setPilot({ ...p })} />}
+
+      {actionError && (
+        <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{actionError}</span>
+        </div>
+      )}
 
       {/* Trial Performance Telemetry */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -147,7 +176,7 @@ export default function GovernmentPilotTrackerPage() {
             ₹
             {(
               pilot.milestones
-                .filter((m) => m.status === "verified")
+                .filter((m) => m.trancheDisbursed)
                 .reduce((acc, curr) => acc + curr.trancheAmount, 0) / 100000
             ).toFixed(2)}{" "}
             Lakhs
@@ -189,7 +218,7 @@ export default function GovernmentPilotTrackerPage() {
               key={milestone.id}
               milestone={milestone}
               onVerify={(m) => setVerifyingMilestone(m)}
-              canVerify={true}
+              canVerify={canVerify}
             />
           ))}
         </div>

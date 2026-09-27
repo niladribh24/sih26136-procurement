@@ -8,7 +8,7 @@ from app.auth import GOV_ROLES, get_current_user, require_role
 from app.database import get_db
 from app.models import User
 from app.schemas.eligibility import EligibilityOut
-from app.schemas.solution import SolutionOut, SolutionStatusUpdate
+from app.schemas.solution import RubricIn, SolutionOut, SolutionStatusUpdate
 from app.services import eligibility, solution_service
 from app.services.uploads import upload_path
 
@@ -46,6 +46,19 @@ def update_solution_status(
 ) -> SolutionOut:
     solution = solution_service.get_solution(db, user, solution_id)
     solution_service.update_status(db, user, solution, req.status)
+    return solution_service.to_out(db, [solution])[0]
+
+
+@router.post("/{solution_id}/rubric", **SOLUTION_RESPONSE)
+def save_rubric(
+    solution_id: uuid.UUID,
+    req: RubricIn,
+    user: User = Depends(require_role("govt_officer", "evaluator")),
+    db: Session = Depends(get_db),
+) -> SolutionOut:
+    """api.ts updateSolutionRubric. Returns the solution with its new rubricScore."""
+    solution = solution_service.get_solution(db, user, solution_id)
+    solution_service.save_rubric(db, user, solution, req)
     return solution_service.to_out(db, [solution])[0]
 
 

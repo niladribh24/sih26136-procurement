@@ -90,7 +90,7 @@ filename is only kept for display.
 |---|---|
 | 403 | right role but not *your* resource (editing another officer's problem, changing status on a solution to someone else's problem) |
 | 404 | not found — **also** returned when a startup asks for another startup's solution, so its existence isn't revealed |
-| 409 | a startup submitting a second proposal to the same problem |
+| 409 | a startup submitting a second proposal to the same problem; shortlisting or piloting an ineligible proposal; a second pilot for one proposal |
 | 413 | uploaded file over 10 MB |
 | 415 | uploaded file isn't a PDF |
 
@@ -218,38 +218,72 @@ turnover later) needs a re-run via POST. One `eligibility_checks` row per soluti
 
 ### Evaluation (Module 4)
 ```
-POST /api/solutions/:id/rubric      { technicalMerit, costRealism, teamCapability, timelineViability, comments? }
-GET  /api/solutions/:id/rubric
+POST /api/solutions/:id/rubric   the officer who posted the problem, or any evaluator → 200 Solution
+  in:  { technicalMerit 0–30, costRealism 0–20, teamCapability 0–20, timelineViability 0–30, comments? }
+       out of range → 422   (api.ts updateSolutionRubric)
 ```
 Fields and 30/20/20/30 scale match `frontend/lib/types.ts` `Solution.rubricScore` and
-`evaluations` table columns exactly.
+`evaluations` table columns exactly. Every save inserts a new `evaluations` row (with
+`evaluator_id` = the caller), so the history is kept; `Solution.rubricScore` is the newest one.
+There is no `GET /rubric`: the score is already on every `Solution` response.
 
 ### Pilots (Module 5)
+Response is `Pilot` from `frontend/lib/types.ts` exactly (optional fields omitted when empty):
+- `code` (`PLT-2026-001`) is assigned by the database, like `Problem.code`.
+- `status` is the display label (`"Under review"`, `"Recommended for procurement"`, …); the DB
+  stores the enum value (`under_review`, …).
+- `startupId` is the startup's **user id**, like `Solution.startupId`.
+- `startupName` / `dpiitNumber` / `dpiitVerified` come from the startup profile, `department` /
+  `ministry` from the problem, `leadOfficerName` is the name of the officer who posted the problem.
+- `totalBudget` = `pilots.budget_cap`; `durationWeeks` = `(end_date − start_date) / 7`;
+  `completionDate` = when the pilot entered `completed` (from `pilot_status_history`).
+- `sanctionDocketId`, `sanctionOrderRef`, `performanceScore` are always omitted (no data yet;
+  procurement is deferred).
+
+**Visibility:** a startup sees only its own pilots (anyone else's is a 404); government roles see all.
 ```
-POST  /api/pilots                     { problem_id, startup_id, objective, success_metrics, budget_cap, start_date, end_date }
-GET   /api/pilots
-GET   /api/pilots/:id
-PATCH /api/pilots/:id/status          { status }   -- enforce allowed transitions server-side, see state machine below
-POST  /api/pilots/:id/milestones      { title, due_date, trancheAmount, tranchePercentage }
+POST  /api/pilots                     the officer who posted the problem → 201 Pilot   (api.ts createPilot)
+  in:  { solutionId, independentValidatorName, durationWeeks, totalBudget,
+         milestones: [{ sequence, title, description, targetKPI, deliverableDueWeek, tranchePercentage }] }
+       other Pilot fields api.ts sends are ignored — they're derived from the solution.
+       tranchePercentage must add up to 100; deliverableDueWeek ≤ durationWeeks  (else 422)
+       trancheAmount = totalBudget × tranchePercentage / 100, computed server-side
+  409  the proposal's eligibility is "ineligible" (detail names the failed rules; "pending" is allowed)
+  409  a pilot already exists for this proposal (one pilot per solution)
+  effects, in one transaction: pilot created with status Approved (history records
+       proposed → under_review → approved by the officer), the solution → shortlisted,
+       the problem → pilot_active. start_date = today.
+GET   /api/pilots                     any logged-in user → 200 Pilot[]  newest first  (api.ts getPilots)
+GET   /api/pilots/:idOrCode           any logged-in user → 200 Pilot                   (api.ts getPilot)
+PATCH /api/pilots/:idOrCode/status    the officer who posted the problem → 200 Pilot   (api.ts updatePilotStatus)
+  in:  { status }   a PilotStatus label; only legal moves (§3), else 400
+       Approved → Active re-dates the pilot to start today (milestone due weeks are kept)
 ```
+`PATCH /api/solutions/:id/status` to `shortlisted` gets the same ineligible → 409 check.
 
 ### Milestones & tranches (Module 5 + old Module 7, now merged)
 `payment_tranches` no longer exists as a separate resource — tranche amount, percentage,
 disbursed flag and disbursed timestamp live directly on the milestone
 (`pilot_milestones` table), matching `frontend/lib/types.ts` `Milestone`.
+`deliverableDueWeek` = `(due_date − pilot start_date) / 7`; `deliverableFileUrl` = `evidence_url`.
+All three return the whole updated `Pilot`, and all need the pilot to be **Active** (else 400).
 ```
-PATCH /api/pilots/:pilotId/milestones/:milestoneId/deliverable
-  in:  { achievedKPI, fileUrl }
-  -- sets status='submitted', clears any prior verification stamp
+PATCH /api/pilots/:pilotId/milestones/:milestoneId/deliverable     the pilot's startup only
+  in:  { achievedKPI, fileUrl }        (api.ts submitMilestoneDeliverable)
+  -- pending | failed | submitted → submitted; clears any prior verification stamp; verified → 400
 
-PATCH /api/pilots/:pilotId/milestones/:milestoneId/verify
-  in:  { verifiedBy, remarks, status: "verified" | "failed", verificationReportUrl? }
-  -- validator must differ from the evaluator who scored this solution's rubric
-  -- status='failed' twice on a pilot increments pilots.failed_milestones_count and flags it for review
-  -- all milestones verified -> pilot.status auto-advances to 'completed'
+PATCH /api/pilots/:pilotId/milestones/:milestoneId/verify          the officer who posted the problem, or any evaluator
+  in:  { verifiedBy, remarks, status: "verified" | "failed", verificationReportUrl? }   (api.ts verifyMilestone)
+  -- only a submitted milestone (else 400)
+  -- 403 if the caller saved a rubric on this solution (conflict of interest: the validator
+     must differ from the proposal's evaluator)
+  -- stamps verified_by (the caller's account), verified_by_name (verifiedBy), verified_at
+  -- verified: the tranche is disbursed (tranche_disbursed = true, disbursed_at = now());
+     when every milestone is verified the pilot moves to Completed automatically
+  -- failed: pilots.failed_milestones_count += 1
 
-PATCH /api/pilots/:pilotId/milestones/:milestoneId/disburse
-  -- sets tranche_disbursed=true, disbursed_at=now()
+PATCH /api/pilots/:pilotId/milestones/:milestoneId/disburse        the officer who posted the problem
+  -- verified milestones only (else 400); a no-op if verification already disbursed it   (api.ts disburseTranche)
 ```
 
 ### IP / Data agreements, KPIs, independent validation (cross-cutting) — deferred
@@ -315,15 +349,20 @@ thing that writes to the DB.
 ## 3. Pilot state machine (enforce server-side, not just in the UI)
 
 ```
-proposed -> under_review -> approved -> active -> completed
+proposed -> under_review -> approved -> active -> completed -> recommended_for_procurement -> procured
                                             |
                                             -> failed
-completed -> recommended_for_procurement
 ```
 
-No other transitions are valid. Reject invalid `PATCH /pilots/:id/status`
-calls with a 400. (Milestone status is a separate, unrelated state machine —
-`pending -> submitted -> verified` or `-> failed` — see Module 5 above.)
+No other transitions are valid. Invalid `PATCH /pilots/:id/status` calls get a 400 whose
+detail names the allowed next statuses. `completed` also needs every milestone verified.
+`failed` and `procured` are final. The table lives in `app/services/pilot_state_machine.py`
+(`TRANSITIONS`), with a copy in `frontend/lib/pilotStateMachine.ts` for the UI.
+Every change, including the automatic ones, is written to `pilot_status_history`
+(`from_status`, `to_status`, `changed_by`, `changed_at`).
+
+Milestone status is a separate, unrelated state machine:
+`pending -> submitted -> verified | failed`, `failed -> submitted` (resubmission); `verified` is final.
 
 ---
 

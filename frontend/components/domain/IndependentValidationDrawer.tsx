@@ -10,6 +10,7 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import { Milestone, Pilot } from "@/lib/types";
+import { errorMessage } from "@/lib/http";
 import { Drawer } from "@/components/ui/Drawer";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -37,9 +38,11 @@ export const IndependentValidationDrawer: React.FC<IndependentValidationDrawerPr
   const [remarks, setRemarks] = useState("");
   const [reportUrl, setReportUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (milestone) {
+      setError("");
       setDecision("pass");
       setRemarks(
         milestone.verificationRemarks ||
@@ -54,6 +57,7 @@ export const IndependentValidationDrawer: React.FC<IndependentValidationDrawerPr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setError("");
 
     try {
       const { api } = await import("@/lib/api");
@@ -67,6 +71,9 @@ export const IndependentValidationDrawer: React.FC<IndependentValidationDrawerPr
       );
       onVerified();
       onClose();
+    } catch (err) {
+      // e.g. the conflict-of-interest rule: whoever scored the proposal can't verify it.
+      setError(errorMessage(err, "Could not record the verification."));
     } finally {
       setSubmitting(false);
     }
@@ -203,6 +210,13 @@ export const IndependentValidationDrawer: React.FC<IndependentValidationDrawerPr
             <p className="text-[11px] text-[var(--danger)]/90">
               Deliverable flagged as non-compliant with benchmark threshold. Pilot paused for remediation. No funds will be released.
             </p>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 

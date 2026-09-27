@@ -10,6 +10,7 @@ from tests.helpers import (
     PDF_BYTES,
     auth,
     create_problem,
+    declare_turnover,
     make_admin,
     pdf_file,
     signup,
@@ -204,7 +205,9 @@ def status_patch(client, token_or_headers, sol_id, new_status="shortlisted"):
 
 
 def test_owning_officer_changes_status(client, officer, problem):
-    sol = submit_solution(client, signup(client)["token"], problem["id"])
+    startup = signup(client)
+    declare_turnover(client, startup["token"])  # otherwise ineligible, and shortlisting is refused
+    sol = submit_solution(client, startup["token"], problem["id"])
     res = status_patch(client, officer["token"], sol["id"])
     assert res.status_code == 200
     assert res.json() == {**sol, "status": "shortlisted"}
