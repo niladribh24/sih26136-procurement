@@ -4,10 +4,17 @@ import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Building2, Rocket, AlertCircle, Sparkles } from "lucide-react";
-import { DEMO_PERSONAS, setSession } from "@/lib/auth";
+import { ACTIVE_PERSONAS } from "@/lib/auth";
+import { authApi } from "@/lib/api";
+import { USE_MOCK_API } from "@/lib/config";
+import { errorMessage } from "@/lib/http";
 import { UserRole, UserSession } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+
+function personaFor(role: UserRole): UserSession | undefined {
+  return ACTIVE_PERSONAS.find((p) => p.role === role);
+}
 
 function LoginForm() {
   const router = useRouter();
@@ -16,9 +23,11 @@ function LoginForm() {
   const authError = searchParams.get("error");
 
   const [selectedRole, setSelectedRole] = useState<UserRole>("govt_officer");
-  const [email, setEmail] = useState("sharma.icar@gov.in");
-  const [password, setPassword] = useState("••••••••••••");
+  const [email, setEmail] = useState(personaFor("govt_officer")?.email ?? "");
+  // The mock accepts any password; the real backend needs the actual one.
+  const [password, setPassword] = useState(USE_MOCK_API ? "••••••••••••" : "");
   const [errorMsg, setErrorMsg] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const isSafeRedirect = (url: string | null): boolean =>
     Boolean(url && url.startsWith("/") && !url.startsWith("//") && !url.includes(":"));
@@ -31,47 +40,43 @@ function LoginForm() {
 
   const handleRoleTabChange = (role: UserRole) => {
     setSelectedRole(role);
-    if (role === "startup") {
-      setEmail("vikram@aerokisan.tech");
-    } else if (role === "evaluator") {
-      setEmail("krao@iitd.ac.in");
-    } else {
-      setEmail("sharma.icar@gov.in");
-    }
+    setEmail(personaFor(role)?.email ?? "");
   };
 
-  const handleAutofillPersona = (personaId: string) => {
-    const persona = DEMO_PERSONAS.find((p) => p.id === personaId);
-    if (!persona) return;
-    setSelectedRole(persona.role);
-    setEmail(persona.email);
-    setPassword("samarth-demo-2026");
-    handleSubmit(persona);
-  };
-
-  const handleSubmit = (overridePersona?: UserSession) => {
-    const targetPersona =
-      overridePersona ||
-      DEMO_PERSONAS.find((p) => p.email.toLowerCase() === email.toLowerCase()) ||
-      DEMO_PERSONAS.find((p) => p.role === selectedRole);
-
-    if (!targetPersona) {
-      setErrorMsg("No account found matching credentials.");
-      return;
-    }
-
-    setSession(targetPersona);
-
-    if (redirectPath && isSafeRedirect(redirectPath) && isPathAllowedForRole(redirectPath, targetPersona.role)) {
+  const goToDashboard = (session: UserSession) => {
+    if (redirectPath && isSafeRedirect(redirectPath) && isPathAllowedForRole(redirectPath, session.role)) {
       router.push(redirectPath);
-    } else if (targetPersona.role === "startup") {
+    } else if (session.role === "startup") {
       router.push("/startup/problems");
     } else {
       router.push("/gov/problems");
     }
   };
 
+  const runLogin = async (login: () => Promise<UserSession>) => {
+    if (submitting) return;
+    setErrorMsg("");
+    setSubmitting(true);
+    try {
+      goToDashboard(await login());
+    } catch (err) {
+      setErrorMsg(errorMessage(err, "Sign-in failed. Please retry."));
+      setSubmitting(false);
+    }
+  };
+
+  const handleAutofillPersona = (persona: UserSession) => {
+    setSelectedRole(persona.role);
+    setEmail(persona.email);
+    runLogin(() => authApi.loginAsPersona(persona));
+  };
+
+  const handleSubmit = () => {
+    runLogin(() => authApi.login(email, password, selectedRole));
+  };
+
   const getErrorMessage = (err: string | null) => {
+    if (err === "session_expired") return "Your session has expired. Please sign in again.";
     if (err === "startup_role_required") return "Access denied: The requested page requires a verified Startup account.";
     if (err === "gov_role_required") return "Access denied: The requested page requires an authorized Government Officer / Evaluator account.";
     if (err) return "Authentication required: Please sign in to access this workspace.";
@@ -165,8 +170,8 @@ function LoginForm() {
 
         {errorMsg && <div className="text-xs text-[var(--danger)]">{errorMsg}</div>}
 
-        <Button type="submit" variant="primary" className="w-full">
-          Sign In
+        <Button type="submit" variant="primary" className="w-full" disabled={submitting}>
+          {submitting ? "Signing In..." : "Sign In"}
         </Button>
       </form>
 
@@ -178,47 +183,38 @@ function LoginForm() {
         </div>
 
         <div className="space-y-1.5">
-          <button
-            type="button"
-            onClick={() => handleAutofillPersona("user-govt-01")}
-            className="w-full text-left p-2 rounded-[6px] border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-subtle)] text-xs flex items-center justify-between transition-colors cursor-pointer"
-          >
-            <div>
-              <div className="font-semibold text-[var(--ink)]">Dr. A. Sharma</div>
-              <div className="text-[10px] text-[var(--ink-muted)]">ICAR Government Officer</div>
-            </div>
-            <span className="text-[10px] font-mono-data text-[var(--accent)] font-semibold">
-              Enter Portal →
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleAutofillPersona("user-startup-01")}
-            className="w-full text-left p-2 rounded-[6px] border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-subtle)] text-xs flex items-center justify-between transition-colors cursor-pointer"
-          >
-            <div>
-              <div className="font-semibold text-[var(--ink)]">Vikram Mehta</div>
-              <div className="text-[10px] text-[var(--ink-muted)]">AeroKisan Tech (DPIIT Verified)</div>
-            </div>
-            <span className="text-[10px] font-mono-data text-[var(--highlight)] font-semibold">
-              Enter Portal →
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleAutofillPersona("user-eval-01")}
-            className="w-full text-left p-2 rounded-[6px] border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-subtle)] text-xs flex items-center justify-between transition-colors cursor-pointer"
-          >
-            <div>
-              <div className="font-semibold text-[var(--ink)]">Prof. K. Rao</div>
-              <div className="text-[10px] text-[var(--ink-muted)]">IIT Delhi Technical Evaluator</div>
-            </div>
-            <span className="text-[10px] font-mono-data text-[#6D28D9] font-semibold">
-              Enter Portal →
-            </span>
-          </button>
+          {ACTIVE_PERSONAS.map((persona) => (
+            <button
+              key={persona.id}
+              type="button"
+              disabled={submitting}
+              onClick={() => handleAutofillPersona(persona)}
+              className="w-full text-left p-2 rounded-[6px] border border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-subtle)] text-xs flex items-center justify-between transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+            >
+              <div>
+                <div className="font-semibold text-[var(--ink)]">{persona.name}</div>
+                <div className="text-[10px] text-[var(--ink-muted)]">
+                  {persona.orgName} ·{" "}
+                  {persona.role === "startup"
+                    ? `DPIIT ${persona.dpiitNumber}`
+                    : persona.role === "evaluator"
+                      ? "Technical Evaluator"
+                      : "Government Officer"}
+                </div>
+              </div>
+              <span
+                className={`text-[10px] font-mono-data font-semibold ${
+                  persona.role === "startup"
+                    ? "text-[var(--highlight)]"
+                    : persona.role === "evaluator"
+                      ? "text-[#6D28D9]"
+                      : "text-[var(--accent)]"
+                }`}
+              >
+                Enter Portal →
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 

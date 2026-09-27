@@ -1,4 +1,5 @@
 import { UserSession } from "./types";
+import { USE_MOCK_API } from "./config";
 
 export const DEMO_PERSONAS: UserSession[] = [
   {
@@ -29,6 +30,49 @@ export const DEMO_PERSONAS: UserSession[] = [
     token: "mock-jwt-eval-rao-2026",
   },
 ];
+
+// Accounts created by backend/seed.py (`python seed.py`). Used by the 1-click persona
+// buttons when talking to the real backend: they log in for real with DEMO_PASSWORD, so
+// token/id here are placeholders — the session comes from POST /api/auth/login.
+export const DEMO_PASSWORD = "Samarth@2026";
+
+export const SEED_PERSONAS: UserSession[] = [
+  {
+    id: "seed-officer-agri",
+    name: "Dr. Anjali Mehra",
+    email: "officer.agri@samarth.demo",
+    role: "govt_officer",
+    orgName: "Ministry of Agriculture & Farmers Welfare",
+    department: "Department of Agriculture & Farmers Welfare",
+    token: "",
+  },
+  {
+    id: "seed-startup-krishinetra",
+    name: "Aditya Kulkarni",
+    email: "krishinetra@samarth.demo",
+    role: "startup",
+    orgName: "KrishiNetra Vision Pvt Ltd",
+    dpiitNumber: "DIPP41872",
+    token: "",
+  },
+  {
+    id: "seed-evaluator",
+    name: "Prof. Meera Iyer",
+    email: "evaluator@samarth.demo",
+    role: "evaluator",
+    orgName: "Independent Technical Evaluation Panel",
+    department: "Technology Assessment Cell",
+    token: "",
+  },
+];
+
+/** The personas the 1-click buttons offer in the current API mode. */
+export const ACTIVE_PERSONAS: UserSession[] = USE_MOCK_API ? DEMO_PERSONAS : SEED_PERSONAS;
+
+/** Persona ids aren't real user ids in backend mode, so compare by email. */
+export function isSamePersona(session: UserSession | null, persona: UserSession): boolean {
+  return Boolean(session && session.email.toLowerCase() === persona.email.toLowerCase());
+}
 
 const SESSION_COOKIE_KEY = "samarth_session_role";
 const SESSION_DATA_KEY = "samarth_session_data";

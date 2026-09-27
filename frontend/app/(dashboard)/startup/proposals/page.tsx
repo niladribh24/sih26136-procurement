@@ -4,8 +4,9 @@ import React, { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { FileText, CheckCircle2, Clock, XCircle, ArrowRight, AlertCircle, Compass } from "lucide-react";
 import { api } from "@/lib/api";
-import { Solution } from "@/lib/types";
+import { Solution, isMatchPending } from "@/lib/types";
 import { getSession, subscribeSession } from "@/lib/auth";
+import { USE_MOCK_API } from "@/lib/config";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -22,7 +23,8 @@ export default function StartupProposalsPage() {
     api.getSolutions()
       .then((all: Solution[]) => {
         const active = getSession();
-        if (active?.role === "startup") {
+        // The backend already returns only the caller's own proposals to a startup.
+        if (USE_MOCK_API && active?.role === "startup") {
           const tenantFiltered = all.filter(
             (s: Solution) =>
               s.startupId === active.id ||
@@ -107,7 +109,9 @@ export default function StartupProposalsPage() {
 
                 <div className="text-right">
                   <span className="text-xs font-mono-data font-bold text-[var(--highlight)]">
-                    Match Score: {Math.round((sol.matchScore ?? 0) * 100)}%
+                    {isMatchPending(sol)
+                      ? "Match Score: Pending"
+                      : `Match Score: ${Math.round((sol.matchScore ?? 0) * 100)}%`}
                   </span>
                   <div className="text-[11px] font-mono-data text-[var(--ink-muted)]">
                     Proposed: ₹{((sol.proposedCost ?? 0) / 100000).toFixed(1)}L ({sol.proposedDurationWeeks} wks)

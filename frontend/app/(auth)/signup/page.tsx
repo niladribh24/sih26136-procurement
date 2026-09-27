@@ -4,8 +4,9 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Building2, Rocket } from "lucide-react";
-import { setSession } from "@/lib/auth";
-import { UserRole, UserSession } from "@/lib/types";
+import { authApi } from "@/lib/api";
+import { ApiError, errorMessage } from "@/lib/http";
+import { UserRole } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -19,10 +20,14 @@ export default function SignupPage() {
   const [department, setDepartment] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setErrorMsg("");
+    // Admins can't self-register; the tabs only offer these three.
+    if (role === "admin") return;
 
     const cleanDpiit = dpiitNumber.trim().toUpperCase();
     if (role === "startup") {
@@ -33,18 +38,34 @@ export default function SignupPage() {
       }
     }
 
-    const newSession: UserSession = {
-      id: `user-${Date.now()}`,
-      name: name.trim() || (role === "startup" ? "New Founder" : "New Officer"),
-      email: email.trim(),
-      role,
-      orgName: orgName.trim(),
-      dpiitNumber: role === "startup" ? cleanDpiit : undefined,
-      department: role === "govt_officer" || role === "evaluator" ? department.trim() : undefined,
-      token: `jwt-${Date.now()}`,
-    };
+    if (role !== "startup" && !department.trim()) {
+      setErrorMsg("Please enter your division / laboratory / department.");
+      return;
+    }
+    if (new TextEncoder().encode(password).length < 8) {
+      setErrorMsg("Password must be at least 8 characters.");
+      return;
+    }
 
-    setSession(newSession);
+    setSubmitting(true);
+    try {
+      await authApi.signup({
+        role,
+        name: name.trim(),
+        email: email.trim(),
+        orgName: orgName.trim(),
+        password,
+        ...(role === "startup" ? { dpiitNumber: cleanDpiit } : { department: department.trim() }),
+      });
+    } catch (err) {
+      setErrorMsg(
+        err instanceof ApiError && err.status === 409
+          ? "An account with this email already exists. Sign in instead."
+          : errorMessage(err, "Registration failed. Please retry.")
+      );
+      setSubmitting(false);
+      return;
+    }
 
     if (role === "startup") {
       router.push("/startup/profile");
@@ -152,6 +173,7 @@ export default function SignupPage() {
             placeholder="e.g. Innovation & Technology Acquisition Cell"
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
+            required
           />
         )}
 
@@ -160,11 +182,12 @@ export default function SignupPage() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          helperText="At least 8 characters"
           required
         />
 
-        <Button type="submit" variant="primary" className="w-full">
-          Complete Registration
+        <Button type="submit" variant="primary" className="w-full" disabled={submitting}>
+          {submitting ? "Registering..." : "Complete Registration"}
         </Button>
       </form>
 

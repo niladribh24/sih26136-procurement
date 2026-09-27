@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, PlusCircle, CheckCircle2, Shield } from "lucide-react";
 import { api } from "@/lib/api";
 import { getSession } from "@/lib/auth";
+import { errorMessage } from "@/lib/http";
 import { Problem, TRL } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -76,7 +77,7 @@ export default function PostNewProblemPage() {
 
       router.push("/gov/problems");
     } catch (err) {
-      setFormError("Failed to publish challenge statement. Please verify inputs and retry.");
+      setFormError(errorMessage(err, "Failed to publish challenge statement. Please verify inputs and retry."));
       setSubmitting(false);
     }
   };

@@ -4,14 +4,18 @@ import React, { useState, useEffect } from "react";
 import {
   Building2,
   FileUp,
+  FileText,
   ShieldCheck,
   Sparkles,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Clock,
 } from "lucide-react";
 import { getSession, setSession } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { ApiError, errorMessage } from "@/lib/http";
+import { StartupDocument, StartupProfile, TurnoverBand } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -19,55 +23,52 @@ import { Badge } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StartupTagList } from "@/components/domain/StartupTagList";
 
-export default function StartupProfilePage() {
-  const [startupName, setStartupName] = useState("AeroKisan Technologies Pvt Ltd");
-  const [dpiitNumber, setDpiitNumber] = useState("DIPP98234");
-  const [turnoverBand, setTurnoverBand] = useState("₹1Cr–₹5Cr");
-  const [location, setLocation] = useState("Bengaluru, Karnataka");
-  const [incorporationYear, setIncorporationYear] = useState("2022");
-  const [description, setDescription] = useState(
-    "DeepTech drone manufacturing company specializing in multispectral canopy-penetrating optical payloads and edge-inference autonomous navigation systems."
-  );
+function uploadErrorMessage(err: unknown): string {
+  if (err instanceof ApiError && err.status === 413) return "File is larger than the 10 MB limit.";
+  if (err instanceof ApiError && err.status === 415) return "Only PDF files can be uploaded.";
+  return errorMessage(err, "Upload failed. Please retry.");
+}
 
-  const [tags, setTags] = useState<string[]>([
-    "Computer Vision",
-    "Multispectral Imaging",
-    "SWIR Sensors",
-    "Edge Compute",
-    "Autonomous Flight",
-    "Encrypted Mesh Telemetry",
-  ]);
+export default function StartupProfilePage() {
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const [startupName, setStartupName] = useState("");
+  const [dpiitNumber, setDpiitNumber] = useState("");
+  const [dpiitVerified, setDpiitVerified] = useState(false);
+  const [turnoverBand, setTurnoverBand] = useState<TurnoverBand>("< ₹1Cr");
+  const [location, setLocation] = useState("");
+  const [incorporationYear, setIncorporationYear] = useState("");
+  const [description, setDescription] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [documents, setDocuments] = useState<StartupDocument[]>([]);
 
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractedSummary, setExtractedSummary] = useState<string | null>(
-    "Extracted from AeroKisan_R&D_Dossier_2025.pdf: Core expertise in SWIR optical telemetry and edge tensor computing."
-  );
+  const [uploadError, setUploadError] = useState("");
+  const [extractedSummary, setExtractedSummary] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Hydrate from localStorage / session cleanly after mount to avoid SSR hydration mismatch
-  useEffect(() => {
-    try {
-      const session = getSession();
-      if (session) {
-        if (session.orgName) setStartupName(session.orgName);
-        if (session.dpiitNumber) setDpiitNumber(session.dpiitNumber);
-      }
+  const applyProfile = (p: StartupProfile) => {
+    setStartupName(p.startupName);
+    setDpiitNumber(p.dpiitNumber);
+    setDpiitVerified(p.dpiitVerified);
+    if (p.turnoverBand) setTurnoverBand(p.turnoverBand);
+    setLocation(p.location ?? "");
+    setIncorporationYear(p.incorporationYear != null ? String(p.incorporationYear) : "");
+    setDescription(p.description ?? "");
+    setTags(p.tags);
+    setDocuments(p.documents);
+  };
 
-      const saved = localStorage.getItem("samarth_startup_profile");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.startupName) setStartupName(parsed.startupName);
-        if (parsed.dpiitNumber) setDpiitNumber(parsed.dpiitNumber);
-        if (parsed.turnoverBand) setTurnoverBand(parsed.turnoverBand);
-        if (parsed.location) setLocation(parsed.location);
-        if (parsed.incorporationYear) setIncorporationYear(parsed.incorporationYear);
-        if (parsed.description) setDescription(parsed.description);
-        if (Array.isArray(parsed.tags)) setTags(parsed.tags);
-        if (parsed.extractedSummary) setExtractedSummary(parsed.extractedSummary);
-      }
-    } catch {
-      // Ignore parse errors
-    }
+  // Load after mount (client-only data) to avoid an SSR hydration mismatch
+  useEffect(() => {
+    api
+      .getMyProfile()
+      .then(applyProfile)
+      .catch((err: unknown) => setLoadError(errorMessage(err, "Could not load your profile.")))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,51 +76,83 @@ export default function StartupProfilePage() {
     if (!file) return;
 
     setIsExtracting(true);
+    setUploadError("");
     setExtractedSummary(null);
 
     try {
-      const res = await api.extractDocumentTags(file.name);
-      setTags(res.tags);
-      setExtractedSummary(res.summary);
+      const res = await api.extractDocumentTags(file);
+      if (res.extractionStatus === "pending") {
+        setExtractedSummary(
+          `${res.fileName} uploaded. Capability extraction is pending (the analysis service is offline) and will be filled in automatically later.`
+        );
+      } else {
+        setExtractedSummary(res.summary);
+      }
+      // Tags are the union across all documents, so re-read the profile rather than using res.tags alone.
+      applyProfile(await api.getMyProfile());
+    } catch (err) {
+      setUploadError(uploadErrorMessage(err));
     } finally {
       setIsExtracting(false);
       e.target.value = "";
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+    setSaveError("");
 
+    const year = incorporationYear.trim() ? parseInt(incorporationYear, 10) : null;
+    if (year !== null && isNaN(year)) {
+      setSaveError("Year of incorporation must be a number.");
+      return;
+    }
+
+    setSaving(true);
     try {
+      const updated = await api.updateMyProfile({
+        startupName: startupName.trim(),
+        dpiitNumber: dpiitNumber.trim().toUpperCase(),
+        turnoverBand,
+        location: location.trim() || null,
+        incorporationYear: year,
+        description: description.trim() || null,
+      });
+      applyProfile(updated);
+
+      // The startup name is the session's orgName, so keep the header in sync.
       const session = getSession();
       if (session) {
-        setSession({
-          ...session,
-          orgName: startupName,
-          dpiitNumber: dpiitNumber,
-        });
+        setSession({ ...session, orgName: updated.startupName, dpiitNumber: updated.dpiitNumber });
       }
-
-      localStorage.setItem(
-        "samarth_startup_profile",
-        JSON.stringify({
-          startupName,
-          dpiitNumber,
-          turnoverBand,
-          location,
-          incorporationYear,
-          description,
-          tags,
-          extractedSummary,
-        })
-      );
 
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
-    } catch {
-      setSavedSuccess(false);
+    } catch (err) {
+      setSaveError(errorMessage(err, "Could not save your profile. Please retry."));
+    } finally {
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center text-xs text-[var(--ink-muted)] flex items-center justify-center gap-2">
+        <Clock className="w-4 h-4 animate-spin" />
+        <span>Loading startup profile...</span>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] flex items-center gap-2 max-w-4xl">
+        <AlertCircle className="w-4 h-4" />
+        <span>{loadError}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -128,10 +161,17 @@ export default function StartupProfilePage() {
         title="DPIIT Profile & Technical Competencies"
         subtitle="Maintain official startup credentials and upload project whitepapers for automated capability extraction."
         badge={
-          <Badge variant="dpiit_verified">
-            <ShieldCheck className="w-3 h-3 mr-1" />
-            DPIIT VERIFIED · {dpiitNumber}
-          </Badge>
+          dpiitVerified ? (
+            <Badge variant="dpiit_verified">
+              <ShieldCheck className="w-3 h-3 mr-1" />
+              DPIIT VERIFIED · {dpiitNumber}
+            </Badge>
+          ) : (
+            <Badge variant="warning">
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              DPIIT VERIFICATION PENDING · {dpiitNumber}
+            </Badge>
+          )
         }
       />
 
@@ -139,6 +179,13 @@ export default function StartupProfilePage() {
         <div className="p-3 bg-[var(--positive-soft)] border border-[var(--positive)]/30 rounded-[6px] text-xs text-[var(--positive)] flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
           <span>Profile and technical competencies successfully saved.</span>
+        </div>
+      )}
+
+      {saveError && (
+        <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" />
+          <span>{saveError}</span>
         </div>
       )}
 
@@ -169,7 +216,7 @@ export default function StartupProfilePage() {
             <Select
               label="Annual Turnover Band"
               value={turnoverBand}
-              onChange={(e) => setTurnoverBand(e.target.value)}
+              onChange={(e) => setTurnoverBand(e.target.value as TurnoverBand)}
               options={[
                 { value: "< ₹1Cr", label: "Under ₹1 Crore (Micro-Startup)" },
                 { value: "₹1Cr–₹5Cr", label: "₹1 Crore – ₹5 Crore" },
@@ -249,10 +296,44 @@ export default function StartupProfilePage() {
                 )}
               </div>
               <span className="text-[10px] text-[var(--ink-muted)]">
-                Supported: PDF dossiers up to 25MB
+                Supported: PDF dossiers up to 10MB
               </span>
             </label>
           </div>
+
+          {uploadError && (
+            <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              <span>{uploadError}</span>
+            </div>
+          )}
+
+          {documents.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-mono-data uppercase tracking-wider text-[var(--ink-muted)] font-semibold block">
+                Uploaded Dossiers
+              </span>
+              {documents.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between gap-3 p-2 bg-[var(--surface)] border border-[var(--line)] rounded-[6px] text-xs"
+                >
+                  <span className="flex items-center gap-1.5 text-[var(--ink)] min-w-0">
+                    <FileText className="w-3.5 h-3.5 text-[var(--ink-muted)] shrink-0" />
+                    <span className="truncate">{doc.fileName}</span>
+                  </span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono-data text-[11px] text-[var(--ink-muted)]">{doc.uploadedAt}</span>
+                    {doc.extractionStatus === "done" ? (
+                      <Badge variant="positive">EXTRACTED</Badge>
+                    ) : (
+                      <Badge variant="warning">EXTRACTION PENDING</Badge>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {extractedSummary && (
             <div className="p-3 bg-[var(--surface-subtle)] border border-[var(--line)] rounded-[6px] text-xs text-[var(--ink-secondary)]">
@@ -263,13 +344,13 @@ export default function StartupProfilePage() {
             </div>
           )}
 
-          {/* Interactive Tag Editor */}
-          <StartupTagList tags={tags} onChange={setTags} />
+          {/* Tags come from document extraction (union across all uploads); they aren't hand-edited */}
+          <StartupTagList tags={tags} onChange={setTags} readOnly />
         </div>
 
         <div className="flex justify-end">
-          <Button type="submit" variant="primary" size="md">
-            Save Profile & Capabilities
+          <Button type="submit" variant="primary" size="md" disabled={saving}>
+            {saving ? "Saving..." : "Save Profile & Capabilities"}
           </Button>
         </div>
       </form>

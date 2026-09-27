@@ -1,5 +1,6 @@
-"""PreToolUse guard: inside this repo, Claude may only write to backend/ (plus the root
-CLAUDE.md), never backend/.env. Paths outside the repo (~/.claude plans, memory) are allowed."""
+"""PreToolUse guard: inside this repo, Claude may only write to backend/ and frontend/ (plus the
+root CLAUDE.md), never backend/.env. nlp/ and everything else in the repo stay blocked. Paths
+outside the repo (~/.claude plans, memory) are allowed."""
 
 import json
 import os
@@ -7,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-BACKEND = ROOT / "backend"
+WRITABLE_DIRS = (ROOT / "backend", ROOT / "frontend")
 
 
 def norm(p: Path) -> str:
@@ -23,19 +24,19 @@ if not raw:
 target = Path(raw)
 if not target.is_absolute():
     target = Path(data.get("cwd") or ROOT) / target
-t = norm(target)  # resolve() collapses ../ tricks like backend/../frontend/x
+t = norm(target)  # resolve() collapses ../ tricks like backend/../nlp/x
 
 if not t.startswith(norm(ROOT) + os.sep):
     sys.exit(0)  # outside the repo: not ours to police
-if t == norm(BACKEND / ".env"):
+if t == norm(ROOT / "backend" / ".env"):
     print(f"Blocked: {raw} holds real secrets and must not be edited by Claude. Edit it by hand.", file=sys.stderr)
     sys.exit(2)
-if t == norm(ROOT / "CLAUDE.md") or t.startswith(norm(BACKEND) + os.sep):
+if t == norm(ROOT / "CLAUDE.md") or any(t.startswith(norm(d) + os.sep) for d in WRITABLE_DIRS):
     sys.exit(0)
 
 print(
-    f"Blocked: {raw} is outside backend/. Per CLAUDE.md, Claude only writes to backend/ "
-    "(and the root CLAUDE.md). frontend/ and nlp/ belong to other owners - ask the user first.",
+    f"Blocked: {raw} is outside backend/ and frontend/. Per CLAUDE.md, Claude only writes to "
+    "backend/ and frontend/ (and the root CLAUDE.md). nlp/ belongs to another owner - ask the user first.",
     file=sys.stderr,
 )
 sys.exit(2)

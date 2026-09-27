@@ -15,13 +15,18 @@ nlp/        FastAPI microservice (Python) — extract/summarize/rank pipelines
 docs/       Cross-cutting specs (NLP requirements, frontend API contract, demo runbook)
 ```
 
-**Current reality check:** the frontend has no real backend to call. `frontend/lib/api.ts` is a complete mock implementation that persists everything to `localStorage` and simulates NLP results (fixed match score, canned tags/summary). There isn't a real `fetch`/`axios` call to a backend anywhere in the frontend. Don't assume backend or NLP endpoints are reachable — check `frontend/lib/api.ts` before wiring up "real" calls, and treat `backend/docs/api_contract.md` as the target shape, not a live API.
+**Current reality check:** `frontend/lib/api.ts` has two implementations of `ApiService`, and `export const api` picks one from `NEXT_PUBLIC_USE_MOCK_API`:
+- **`realApi`** (the default) calls the FastAPI backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`), using the URLs in `backend/docs/api_contract.md`. It covers auth, profile/documents, problems, solutions, ranking, and eligibility.
+- **`mockApi`** (`NEXT_PUBLIC_USE_MOCK_API=true`) is the original `localStorage` mock, and needs no backend.
 
-## Backend developer working agreement (read this first)
+Methods with no backend endpoint yet (pilots, milestones, tranches, scale, replication, `logAuditEntry`) are spread from `mockApi` into `realApi`, so they stay on `localStorage` even in backend mode. `updateSolutionRubric` throws a 501 in backend mode. Before changing either side, check which methods are actually real in `realApi`.
 
-This repo has three owners working in parallel. **You (the human operator) are the backend + database developer.** Claude's scope on this project is:
+## Working agreement (read this first)
 
-- **Only ever create or edit files inside `backend/`.** Never edit anything under `frontend/` or `nlp/` unless the user explicitly asks in that specific message — reading those directories for context (contracts, types) is fine and expected, writing to them is not.
+This repo has three owners working in parallel. **You (the human operator) are the backend + database developer, and also own connecting the frontend to the backend.** Claude's scope on this project is:
+
+- **Only ever create or edit files inside `backend/` or `frontend/`** (plus this root `CLAUDE.md`). Never edit anything under `nlp/` unless the user explicitly asks in that specific message; reading it for context is fine. `backend/.env` holds real secrets and is never edited by Claude. `.claude/hooks/guard_paths.py` enforces all of this.
+- **Frontend edits follow `frontend/DESIGN.md`.** Read it before touching `frontend/components/` or `frontend/app/`, reuse existing tokens and components, and run its §31 anti-slop checklist before calling a UI change done. Keep `npm run build` passing.
 - **Never change the wire contract or the schema on your own initiative.** `backend/docs/api_contract.md`, `backend/schema.sql`, and the shapes implied by `frontend/lib/types.ts` / `frontend/lib/api.ts` are the agreement between three people who built independently. If implementing a feature seems to require a different field, a renamed column, or a new endpoint shape than what's documented, **stop and ask the user first** — don't silently add a column, rename a field, or invent a response shape, even to fix an obvious-looking bug. Point out the mismatch and propose the change; let the user decide and (if it's a contract change) relay it to teammates.
 - The user is new to databases — prefer explaining *why* a schema/query decision is being made, not just making it, and flag anything that's a common beginner foot-gun (e.g. cascading deletes, missing indexes on foreign keys, N+1 queries) as you go.
 
@@ -77,7 +82,20 @@ These decisions were made explicitly by the user and applied to `backend/schema.
     - **Schema:** `eligibility_checks.rule_results JSONB` holds `[{rule, status, reason}]` for every rule. The four `*_ok` booleans mean TRUE = pass, FALSE = fail, NULL = pending. `overall_eligible`'s three-valued AND already gives FALSE on any fail and NULL while something is pending. There's one row per solution, updated in place on a re-run.
     - **Rules:** `dpiit` passes on a present, well-formed number, since nothing sets `dpiit_verified` yet; the reason says whether it's verified. `turnover` fails above ₹25 Cr (the frontend's cap, kept deliberately even though DPIIT allows ₹100 Cr) and fails when the band isn't declared. `domain` is pending while the ML domain is NULL. `trl` requires claimed ≥ expected and passes when the problem has none. Add a rule with the `@rule` decorator.
     - **When it runs:** on solution submission, and again for pending checks when `ml_sync.run_extract` fills in the domain (upload or `retry_ml.py`, which also backfills unchecked solutions).
-    - **Contract change:** `POST /api/solutions/:id/eligibility` re-runs the check (the owning officer or any evaluator). `GET` is for government roles only. The `Eligibility` response shape is new, with no `types.ts` equivalent yet; tell the frontend team.
+    - **Contract change:** `POST /api/solutions/:id/eligibility` re-runs the check (the owning officer or any evaluator). `GET` is for government roles only. The `Eligibility` response shape is new; #17 added it to `types.ts`.
+
+17. The frontend is connected to the backend. There were no wire or schema changes; everything follows `api_contract.md`.
+    - **Frontend files:**
+      - `lib/config.ts` holds the env flags.
+      - `lib/http.ts` has `apiFetch`, which adds the Bearer token, throws `ApiError {status, detail}`, and on a 401 clears the session and redirects to `/login?error=session_expired`. Login and signup pass `auth: false`, so a wrong password is a normal error.
+      - `lib/api.ts` has `realApi`, `mockApi`, and `authApi` (login, signup, `loginAsPersona`).
+    - **`types.ts`** gained `StartupProfile`, `StartupDocument`, `DocumentUploadResult`, `Eligibility`, `TurnoverBand`, and `isMatchPending()`. `isMatchPending` is true when `matchExplanation` is `"AI match analysis pending."`.
+    - **Interface changes:**
+      - `submitSolution(data, file)` takes the PDF.
+      - `extractDocumentTags(file)` takes a `File`, not a name.
+      - Added `getMyProfile`, `updateMyProfile`, `getMyDocuments`, `rankSolutions`, `getEligibility`, and `rerunEligibility`.
+    - **Demo personas:** in backend mode the 1-click persona buttons (landing, login, header) log in for real as the `seed.py` accounts (`SEED_PERSONAS` in `lib/auth.ts`). In mock mode they use the old `DEMO_PERSONAS`.
+    - **CORS:** `FRONTEND_URL` may be comma-separated. `Settings.cors_origins` adds each origin's `localhost` or `127.0.0.1` twin. `tests/test_cors.py` covers this.
 
 One knock-on rename made *because of* #4, not an independent decision: `pilots.missed_milestones_count` was renamed to `failed_milestones_count`, since "missed" is no longer a valid milestone status — flagged here in case that's not wanted.
 
@@ -146,6 +164,7 @@ backend/
     ├── test_solutions.py         # submit, visibility, status, PDF download
     ├── test_eligibility.py       # rules unit-tested, pass/fail/pending end to end, ML re-evaluation, endpoint roles
     ├── test_ml.py                # extract/summarize/rank wiring, pending on failure, force-rank, retry_pending
+    ├── test_cors.py              # the frontend origin (localhost and 127.0.0.1 :3000) passes CORS preflight; unknown origins don't
     ├── test_seed.py              # seed.py with ML down: counts, pending ML fields, the TRL failure, --clear
     ├── test_ml_live.py           # one end-to-end run against the REAL ML service; skipped unless RUN_LIVE_ML=1
     └── test_models_match_schema.py  # reflects the live DB and fails if models drift from schema.sql
@@ -155,11 +174,12 @@ Migrations: given the schema is "locked" and this is a short hackathon build, we
 
 ## Commands
 
-### Frontend (`frontend/`) — the only service with a working dev loop
+### Frontend (`frontend/`)
 ```bash
 cd frontend
 npm install
-npm run dev      # Turbopack dev server, http://localhost:3000
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL, NEXT_PUBLIC_USE_MOCK_API (restart dev server after changing)
+npm run dev      # Turbopack dev server, http://localhost:3000 (backend mode needs uvicorn on :8000 + `python seed.py` for personas)
 npm run build    # production build (target: <500ms, zero TS/lint errors across all routes)
 npm run start    # serve the production build
 npm run lint     # eslint (flat config, eslint-config-next core-web-vitals + typescript)
@@ -196,7 +216,7 @@ $env:RUN_LIVE_ML = "1"; pytest tests/test_ml_live.py -q   # one real end-to-end 
 ## Architecture notes that span files
 
 ### Three-tier contract, strictly one-directional
-Frontend → Backend → {Postgres, NLP microservice}. The frontend must never call the NLP service or Postgres directly; the NLP service must never touch Postgres. This boundary is documented in `backend/docs/api_contract.md` and the root `README.md` §2 — preserve it even though today the frontend is mocked and bypasses the backend entirely.
+Frontend → Backend → {Postgres, NLP microservice}. The frontend must never call the NLP service or Postgres directly; the NLP service must never touch Postgres. This boundary is documented in `backend/docs/api_contract.md` and the root `README.md` §2 — preserve it in both API modes (mock mode simply calls nothing).
 
 ### The pilot state machine is the backbone of the domain model
 ```

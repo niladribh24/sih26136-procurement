@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ShieldCheck, ArrowRight, CheckCircle2, Sparkles, Building2 } from "lucide-react";
-import { Solution } from "@/lib/types";
+import { Solution, isMatchPending } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 
@@ -22,6 +22,7 @@ export const RankedSolutionCard: React.FC<RankedSolutionCardProps> = ({
   isShortlisted = false,
 }) => {
   const matchPct = Math.round((solution.matchScore || 0) * 100);
+  const matchPending = isMatchPending(solution);
 
   return (
     <div className="p-6 bg-[var(--surface-raised)] border border-[var(--line)] hover:border-[var(--line-strong)] rounded-[8px] space-y-4 shadow-2xs transition-all">
@@ -58,7 +59,7 @@ export const RankedSolutionCard: React.FC<RankedSolutionCardProps> = ({
         <div className="flex sm:flex-col items-end justify-between sm:justify-start gap-1 shrink-0">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--highlight-soft)] border border-[var(--highlight)]/30 text-xs font-bold font-mono-data text-[var(--highlight)] shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>{matchPct}% Match</span>
+            <span>{matchPending ? "Match Pending" : `${matchPct}% Match`}</span>
           </div>
           <div className="text-right text-xs font-mono-data mt-1">
             <span className="font-bold text-[var(--ink)]">

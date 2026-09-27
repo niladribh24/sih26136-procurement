@@ -15,7 +15,10 @@ export default function StartupProblemBrowserPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    api.getProblems().then(setProblems);
+    api
+      .getProblems()
+      .then(setProblems)
+      .catch((err: unknown) => console.error("Failed to load problems", err));
   }, []);
 
   const domains = ["all", "DroneTech", "AgriTech", "Defence", "HealthTech", "CleanTech", "GovTech"];

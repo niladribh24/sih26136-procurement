@@ -13,7 +13,9 @@ import {
   GraduationCap,
   CheckCircle2,
 } from "lucide-react";
-import { DEMO_PERSONAS, getSession, setSession, clearSession, subscribeSession } from "@/lib/auth";
+import { ACTIVE_PERSONAS, getSession, clearSession, subscribeSession, isSamePersona } from "@/lib/auth";
+import { authApi } from "@/lib/api";
+import { errorMessage } from "@/lib/http";
 import { UserSession } from "@/lib/types";
 import { SamarthEmblem } from "@/components/ui/SamarthEmblem";
 
@@ -23,6 +25,7 @@ export const TopHeader: React.FC = () => {
   const router = useRouter();
   const session = useSyncExternalStore(subscribeSession, getSession, getServerSnapshot);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [switchError, setSwitchError] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,8 +49,14 @@ export const TopHeader: React.FC = () => {
     };
   }, [dropdownOpen]);
 
-  const handleSwitchPersona = (persona: UserSession) => {
-    setSession(persona);
+  const handleSwitchPersona = async (persona: UserSession) => {
+    setSwitchError("");
+    try {
+      await authApi.loginAsPersona(persona);
+    } catch (err) {
+      setSwitchError(errorMessage(err, "Could not switch persona."));
+      return;
+    }
     setDropdownOpen(false);
 
     // Navigate to respective dashboard
@@ -113,8 +122,11 @@ export const TopHeader: React.FC = () => {
                   </span>
                 </div>
                 <div className="space-y-1">
-                  {DEMO_PERSONAS.map((persona) => {
-                    const isSelected = session?.id === persona.id;
+                  {switchError && (
+                    <div className="px-2 py-1.5 text-[11px] text-[var(--danger)]">{switchError}</div>
+                  )}
+                  {ACTIVE_PERSONAS.map((persona) => {
+                    const isSelected = isSamePersona(session, persona);
                     return (
                       <button
                         key={persona.id}

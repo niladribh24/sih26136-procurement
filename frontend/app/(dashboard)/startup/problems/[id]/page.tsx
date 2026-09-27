@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getSession } from "@/lib/auth";
+import { USE_MOCK_API } from "@/lib/config";
+import { ApiError, errorMessage } from "@/lib/http";
 import { Problem, Solution, TRL } from "@/lib/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -41,7 +43,9 @@ export default function StartupProblemSubmissionPage() {
   const [claimedTRL, setClaimedTRL] = useState<TRL>("TRL-6");
   const [proposedCost, setProposedCost] = useState("2850000");
   const [proposedDurationWeeks, setProposedDurationWeeks] = useState("8");
-  const [pdfFileName, setPdfFileName] = useState("Technical_Proposal_Dossier.pdf");
+  // The mock only needs a name; the real backend needs the actual PDF.
+  const [pdfFileName, setPdfFileName] = useState(USE_MOCK_API ? "Technical_Proposal_Dossier.pdf" : "");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
 
@@ -91,10 +95,16 @@ export default function StartupProblemSubmissionPage() {
       return;
     }
 
+    if (!USE_MOCK_API && !pdfFile) {
+      setFormError("Please attach your technical proposal PDF.");
+      return;
+    }
+
     setSubmitting(true);
     const session = getSession();
 
     try {
+      // Startup name, DPIIT and location are only used by the mock; the backend reads them from your profile.
       const result = await api.submitSolution({
         problemId: problem.id,
         startupId: session?.id || "user-startup-01",
@@ -108,14 +118,23 @@ export default function StartupProblemSubmissionPage() {
         proposedCost: costNum,
         proposedDurationWeeks: weeksNum,
         pdfUrl: `/proposals/${pdfFileName}`,
-      });
+      }, pdfFile ?? undefined);
 
       setSubmittedId(result.id);
       setTimeout(() => {
         router.push("/startup/proposals");
       }, 2500);
     } catch (err) {
-      setFormError("Failed to record proposal. Please verify connection and retry.");
+      const status = err instanceof ApiError ? err.status : -1;
+      setFormError(
+        status === 409
+          ? "Your startup has already submitted a proposal to this challenge."
+          : status === 413
+            ? "The proposal PDF is larger than the 10 MB limit."
+            : status === 415
+              ? "The attached file isn't a valid PDF."
+              : errorMessage(err, "Failed to record proposal. Please verify connection and retry.")
+      );
       setSubmitting(false);
     }
   };
@@ -318,7 +337,7 @@ export default function StartupProblemSubmissionPage() {
                 {pdfFileName ? (
                   <span className="font-mono-data text-[var(--accent)]">{pdfFileName}</span>
                 ) : (
-                  <span>Attach Technical Proposal PDF (Max 15MB)</span>
+                  <span>Attach Technical Proposal PDF (Max 10MB)</span>
                 )}
               </div>
               <input
@@ -327,6 +346,7 @@ export default function StartupProblemSubmissionPage() {
                 accept=".pdf"
                 onChange={(e) => {
                   if (e.target.files?.[0]) {
+                    setPdfFile(e.target.files[0]);
                     setPdfFileName(e.target.files[0].name);
                   }
                 }}
@@ -336,13 +356,13 @@ export default function StartupProblemSubmissionPage() {
                 htmlFor="solution-pdf"
                 className="inline-block mt-2 text-[11px] text-[var(--accent)] font-semibold underline cursor-pointer"
               >
-                Change Document
+                {pdfFileName ? "Change Document" : "Choose Document"}
               </label>
             </div>
 
             <div className="pt-4 border-t border-[var(--line)] flex items-center justify-between">
               <span className="text-[11px] font-mono-data text-[var(--ink-muted)]">
-                DPIIT GFR 149 Eligibility Verified
+                Eligibility is checked automatically on submission
               </span>
               <Button type="submit" variant="primary" disabled={submitting}>
                 {submitting ? "Processing Submission..." : "Submit Technical Proposal"}

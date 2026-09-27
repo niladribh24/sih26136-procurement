@@ -11,14 +11,39 @@ import {
   Rocket,
   ChevronDown,
   ChevronUp,
+  XCircle,
+  Clock,
+  RefreshCw,
 } from "lucide-react";
-import { Solution, Problem } from "@/lib/types";
+import { Solution, Problem, Eligibility, EligibilityRuleStatus, isMatchPending } from "@/lib/types";
 import { api } from "@/lib/api";
+import { ApiError, errorMessage } from "@/lib/http";
 import { Drawer } from "@/components/ui/Drawer";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PilotSetupPanel } from "./PilotSetupPanel";
+
+const RULE_STYLE: Record<EligibilityRuleStatus, string> = {
+  pass: "bg-[var(--positive-soft)] text-[var(--positive)] border-[var(--positive)]/30",
+  fail: "bg-[var(--danger-soft)] text-[var(--danger)] border-[var(--danger)]/30",
+  pending: "bg-[var(--warning-soft)] text-[var(--warning)] border-[var(--warning)]/30",
+};
+
+const ELIGIBILITY_BADGE = {
+  eligible: "positive",
+  ineligible: "danger",
+  pending: "warning",
+} as const;
+
+const RuleIcon: React.FC<{ status: EligibilityRuleStatus }> = ({ status }) =>
+  status === "pass" ? (
+    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+  ) : status === "fail" ? (
+    <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
+  ) : (
+    <Clock className="w-4 h-4 shrink-0 mt-0.5" />
+  );
 
 export interface SolutionInspectorDrawerProps {
   isOpen: boolean;
@@ -41,6 +66,39 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
   const [teamCap, setTeamCap] = useState(19);
   const [timelineViab, setTimelineViab] = useState(27);
   const [savedRubric, setSavedRubric] = useState(false);
+  const [rubricError, setRubricError] = useState("");
+
+  // Eligibility is computed server-side on submission; the drawer just reads it. The result is
+  // tagged with its solution id, so switching solutions shows "loading" without a reset in the effect.
+  const [eligibilityResult, setEligibilityResult] = useState<{
+    solutionId: string;
+    data: Eligibility | null;
+    error: string;
+  } | null>(null);
+  const [eligibilityBusy, setEligibilityBusy] = useState(false);
+
+  const solutionId = solution?.id;
+  useEffect(() => {
+    if (!isOpen || !solutionId) return;
+    let cancelled = false;
+    api
+      .getEligibility(solutionId)
+      .then((data) => {
+        if (!cancelled) setEligibilityResult({ solutionId, data, error: "" });
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setEligibilityResult({ solutionId, data: null, error: errorMessage(err, "Could not load eligibility.") });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, solutionId]);
+
+  const currentEligibility = eligibilityResult?.solutionId === solutionId ? eligibilityResult : null;
+  const eligibility = currentEligibility?.data ?? null;
+  const eligibilityError = currentEligibility?.error ?? "";
 
   useEffect(() => {
     if (solution) {
@@ -50,6 +108,7 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
       setTimelineViab(solution.rubricScore?.timelineViability ?? 27);
       setShowPilotSetup(false);
       setSavedRubric(false);
+      setRubricError("");
     }
   }, [solution?.id]);
 
@@ -57,15 +116,40 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
 
   const totalScore = techMerit + costRealism + teamCap + timelineViab;
 
+  const matchPending = isMatchPending(solution);
+
   const handleSaveRubric = async () => {
-    await api.updateSolutionRubric(solution.id, {
-      technicalMerit: techMerit,
-      costRealism: costRealism,
-      teamCapability: teamCap,
-      timelineViability: timelineViab,
-    });
+    setRubricError("");
+    try {
+      await api.updateSolutionRubric(solution.id, {
+        technicalMerit: techMerit,
+        costRealism: costRealism,
+        teamCapability: teamCap,
+        timelineViability: timelineViab,
+      });
+    } catch (err) {
+      setRubricError(errorMessage(err, "Could not save the rubric score."));
+      return;
+    }
     setSavedRubric(true);
     setTimeout(() => setSavedRubric(false), 2000);
+  };
+
+  const handleRecheckEligibility = async () => {
+    const id = solution.id;
+    setEligibilityBusy(true);
+    try {
+      setEligibilityResult({ solutionId: id, data: await api.rerunEligibility(id), error: "" });
+    } catch (err) {
+      const error =
+        err instanceof ApiError && err.status === 403
+          ? "Only the officer who posted this problem, or an evaluator, can re-run the check."
+          : errorMessage(err, "Eligibility re-check failed.");
+      // Keep showing the last result alongside the error
+      setEligibilityResult((prev) => ({ solutionId: id, data: prev?.solutionId === id ? prev.data : null, error }));
+    } finally {
+      setEligibilityBusy(false);
+    }
   };
 
   return (
@@ -106,7 +190,7 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
               Requirement Match
             </span>
             <span className="text-base font-bold font-mono-data text-[var(--highlight)]">
-              {Math.round((solution.matchScore || 0) * 100)}% Fit
+              {matchPending ? "Pending" : `${Math.round((solution.matchScore || 0) * 100)}% Fit`}
             </span>
           </div>
         </div>
@@ -137,6 +221,15 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
             </div>
           </div>
 
+          {solution.matchExplanation && (
+            <div className="p-3 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[6px] space-y-1 text-xs">
+              <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--ink-muted)] block font-semibold">
+                Match Rationale:
+              </span>
+              <p className="text-[var(--ink-secondary)] leading-relaxed">{solution.matchExplanation}</p>
+            </div>
+          )}
+
           {solution.matchedKeywords && solution.matchedKeywords.length > 0 && (
             <div className="p-3 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[6px] space-y-1.5 text-xs">
               <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--ink-muted)] block font-semibold">
@@ -158,23 +251,47 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
 
         {/* Automated Eligibility Checks */}
         <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-2">
-          <h3 className="text-xs font-mono-data uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
-            Automated Statutory Eligibility (GFR Rule 149)
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-            <div className="flex items-center gap-1.5 p-2 rounded bg-[var(--positive-soft)] text-[var(--positive)] border border-[var(--positive)]/30">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>DPIIT Recognition Verified</span>
-            </div>
-            <div className="flex items-center gap-1.5 p-2 rounded bg-[var(--positive-soft)] text-[var(--positive)] border border-[var(--positive)]/30">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>Turnover &lt; ₹25Cr</span>
-            </div>
-            <div className="flex items-center gap-1.5 p-2 rounded bg-[var(--positive-soft)] text-[var(--positive)] border border-[var(--positive)]/30">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>Domain Aligned ({problem.domain})</span>
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-mono-data uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+              Automated Statutory Eligibility (GFR Rule 149)
+            </h3>
+            {eligibility && (
+              <Badge variant={ELIGIBILITY_BADGE[eligibility.status]}>
+                {eligibility.status.toUpperCase()}
+              </Badge>
+            )}
           </div>
+
+          {eligibilityError && <div className="text-xs text-[var(--danger)]">{eligibilityError}</div>}
+
+          {!eligibility && !eligibilityError && (
+            <div className="text-xs font-mono-data text-[var(--ink-muted)]">Loading eligibility checks...</div>
+          )}
+
+          {eligibility && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {eligibility.rules.map((r) => (
+                  <div key={r.rule} className={`flex items-start gap-1.5 p-2 rounded border ${RULE_STYLE[r.status]}`}>
+                    <RuleIcon status={r.status} />
+                    <div>
+                      <div className="font-semibold">{r.label}</div>
+                      <div className="text-[11px] opacity-90">{r.reason}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11px] font-mono-data text-[var(--ink-muted)]">
+                  Checked: {new Date(eligibility.checkedAt).toLocaleString("en-IN")}
+                </span>
+                <Button variant="ghost" size="sm" onClick={handleRecheckEligibility} disabled={eligibilityBusy}>
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1 ${eligibilityBusy ? "animate-spin" : ""}`} />
+                  Re-check
+                </Button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Evaluator Rubric Panel */}
@@ -260,6 +377,11 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
               <span className="text-xs text-[var(--positive)] flex items-center gap-1 font-mono-data">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Rubric score saved!
+              </span>
+            ) : rubricError ? (
+              <span className="text-xs text-[var(--danger)] flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {rubricError}
               </span>
             ) : <span />}
 

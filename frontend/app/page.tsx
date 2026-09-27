@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -12,17 +12,30 @@ import {
   Rocket,
   GraduationCap,
 } from "lucide-react";
-import { DEMO_PERSONAS, setSession } from "@/lib/auth";
+import { ACTIVE_PERSONAS } from "@/lib/auth";
+import { authApi } from "@/lib/api";
+import { errorMessage } from "@/lib/http";
+import { UserRole, UserSession } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { SamarthEmblem } from "@/components/ui/SamarthEmblem";
 
 export default function HomePage() {
   const router = useRouter();
 
-  const handleLaunchPersona = (personaId: string) => {
-    const persona = DEMO_PERSONAS.find((p) => p.id === personaId);
-    if (!persona) return;
-    setSession(persona);
+  const [launchError, setLaunchError] = useState("");
+  const personaFor = (role: UserRole): UserSession => ACTIVE_PERSONAS.find((p) => p.role === role)!;
+  const govPersona = personaFor("govt_officer");
+  const startupPersona = personaFor("startup");
+  const evaluatorPersona = personaFor("evaluator");
+
+  const handleLaunchPersona = async (persona: UserSession) => {
+    setLaunchError("");
+    try {
+      await authApi.loginAsPersona(persona);
+    } catch (err) {
+      setLaunchError(errorMessage(err, "Demo sign-in failed. Please retry."));
+      return;
+    }
     if (persona.role === "startup") {
       router.push("/startup/problems");
     } else {
@@ -152,10 +165,10 @@ export default function HomePage() {
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-[var(--ink)]">
-                  Dr. A. Sharma
+                  {govPersona.name}
                 </h3>
                 <p className="text-xs text-[var(--ink-secondary)]">
-                  Nodal Director, Precision Agriculture & Drone Systems, ICAR
+                  {govPersona.department}, {govPersona.orgName}
                 </p>
                 <div className="text-[11px] text-[var(--ink-muted)] pt-2 space-y-1">
                   <div className="flex items-center gap-1.5">
@@ -177,7 +190,7 @@ export default function HomePage() {
                 <Button
                   variant="primary"
                   className="w-full justify-between"
-                  onClick={() => handleLaunchPersona("user-govt-01")}
+                  onClick={() => handleLaunchPersona(govPersona)}
                 >
                   <span>Launch Govt Portal</span>
                   <ArrowRight className="w-4 h-4" />
@@ -195,10 +208,10 @@ export default function HomePage() {
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-[var(--ink)]">
-                  Vikram Mehta
+                  {startupPersona.name}
                 </h3>
                 <p className="text-xs text-[var(--ink-secondary)]">
-                  Founder & CEO, AeroKisan Technologies (DPIIT Verified: DIPP98234)
+                  Founder, {startupPersona.orgName} (DPIIT: {startupPersona.dpiitNumber})
                 </p>
                 <div className="text-[11px] text-[var(--ink-muted)] pt-2 space-y-1">
                   <div className="flex items-center gap-1.5">
@@ -220,7 +233,7 @@ export default function HomePage() {
                 <Button
                   variant="highlight"
                   className="w-full justify-between"
-                  onClick={() => handleLaunchPersona("user-startup-01")}
+                  onClick={() => handleLaunchPersona(startupPersona)}
                 >
                   <span>Launch Startup Portal</span>
                   <ArrowRight className="w-4 h-4" />
@@ -238,10 +251,10 @@ export default function HomePage() {
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-[var(--ink)]">
-                  Prof. K. Rao
+                  {evaluatorPersona.name}
                 </h3>
                 <p className="text-xs text-[var(--ink-secondary)]">
-                  Professor of Autonomous Robotics, Indian Institute of Technology Delhi
+                  {evaluatorPersona.department}, {evaluatorPersona.orgName}
                 </p>
                 <div className="text-[11px] text-[var(--ink-muted)] pt-2 space-y-1">
                   <div className="flex items-center gap-1.5">
@@ -263,7 +276,7 @@ export default function HomePage() {
                 <Button
                   variant="secondary"
                   className="w-full justify-between hover:bg-[#6D28D9]/10 hover:border-[#6D28D9]"
-                  onClick={() => handleLaunchPersona("user-eval-01")}
+                  onClick={() => handleLaunchPersona(evaluatorPersona)}
                 >
                   <span>Launch Evaluator Portal</span>
                   <ArrowRight className="w-4 h-4" />
@@ -271,6 +284,12 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+
+          {launchError && (
+            <div className="mt-4 p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)]">
+              {launchError}
+            </div>
+          )}
         </div>
       </section>
 

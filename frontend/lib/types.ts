@@ -147,3 +147,70 @@ export interface ReplicationRequest {
   requestedAt: string;
   status: "pending" | "approved" | "in_pilot";
 }
+
+
+// ---- Backend-only shapes (defined in backend/docs/api_contract.md; no mock equivalent originally) ----
+
+export type TurnoverBand = "< ₹1Cr" | "₹1Cr–₹5Cr" | "₹5Cr–₹25Cr" | "> ₹25Cr";
+
+export interface StartupDocument {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  extractionStatus: "done" | "pending"; // "pending" = ML service was offline; backend retries later
+}
+
+/** POST /api/startups/me/documents. ML fields are "" / [] while extractionStatus is "pending". */
+export interface DocumentUploadResult extends StartupDocument {
+  domain: string;
+  tags: string[];
+  skills: string[];
+  summary: string;
+}
+
+export interface StartupProfile {
+  userId: string;
+  startupName: string;
+  dpiitNumber: string;
+  dpiitVerified: boolean;
+  domain?: string;
+  turnoverBand?: TurnoverBand;
+  location?: string;
+  incorporationYear?: number;
+  description?: string;
+  tags: string[];
+  skills: string[];
+  documents: StartupDocument[];
+}
+
+/** PATCH /api/startups/me — omitted = unchanged, null clears an optional field. */
+export interface StartupProfileUpdate {
+  startupName?: string;
+  dpiitNumber?: string;
+  turnoverBand?: TurnoverBand | null;
+  location?: string | null;
+  incorporationYear?: number | null;
+  description?: string | null;
+}
+
+export type EligibilityRuleStatus = "pass" | "fail" | "pending";
+
+export interface Eligibility {
+  solutionId: string;
+  status: "eligible" | "ineligible" | "pending";
+  overallEligible: boolean | null;
+  checkedAt: string; // ISO 8601
+  rules: {
+    rule: "dpiit" | "turnover" | "domain" | "trl";
+    label: string;
+    status: EligibilityRuleStatus;
+    reason: string;
+  }[];
+}
+
+/** The backend's matchExplanation for a solution ML /rank hasn't scored yet (matchScore is 0 then). */
+export const MATCH_PENDING_EXPLANATION = "AI match analysis pending.";
+
+export function isMatchPending(sol: Pick<Solution, "matchExplanation">): boolean {
+  return sol.matchExplanation === MATCH_PENDING_EXPLANATION;
+}

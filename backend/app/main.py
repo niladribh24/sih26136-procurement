@@ -15,7 +15,7 @@ app = FastAPI(title="SAMARTH backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[get_settings().frontend_url],
+    allow_origins=get_settings().cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
