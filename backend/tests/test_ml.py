@@ -6,7 +6,7 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.models import SolutionAbstract, StartupDocument
+from app.models import SolutionAbstract, StartupDocument, StartupProfile
 from app.services.ml_sync import MIN_PDF_TEXT_CHARS, retry_pending
 from app.services.solution_service import PENDING_EXPLANATION
 from tests.conftest import EXTRACT_RESPONSE
@@ -263,7 +263,9 @@ def test_retry_pending_fills_everything(client, db, ml, problem):
     ml.up()
     counts = retry_pending(db)
 
-    assert all(done == attempted and attempted >= 1 for done, attempted in counts.values()), counts
+    # extract already settles eligibility (see test_eligibility.py), so only the ML pipelines here.
+    ml_counts = {k: v for k, v in counts.items() if k != "eligibility"}
+    assert all(done == attempted and attempted >= 1 for done, attempted in ml_counts.values()), counts
     assert db.get(StartupDocument, uuid.UUID(doc["id"])).extract_result is not None
     row = solution_row(db, sol["id"])
     assert row.ai_summary is not None and row.rank_result is not None
@@ -278,4 +280,8 @@ def test_retry_pending_leaves_things_pending_when_ml_still_down(client, db, prob
     counts = retry_pending(db)
 
     assert all(done == 0 for done, _ in counts.values()), counts
-    assert db.scalars(select(StartupDocument.extract_result)).all() == [None]
+    # Only this startup's documents: the dev DB may hold others (e.g. seed.py demo data).
+    own_docs = select(StartupDocument.extract_result).join(StartupProfile).where(
+        StartupProfile.user_id == uuid.UUID(s["id"])
+    )
+    assert db.scalars(own_docs).all() == [None]

@@ -116,7 +116,11 @@ CREATE TABLE solution_abstracts (
 );
 
 -- ---------- Module 3: Eligibility Screening ----------
--- Priority: build the rule engine that populates this automatically on solution submission.
+-- Filled by the rule engine (app/services/eligibility.py) on solution submission; one row per
+-- solution, updated in place when the check is re-run. Each *_ok column: TRUE = pass,
+-- FALSE = fail, NULL = pending (e.g. domain_ok while ML hasn't classified the startup yet).
+-- overall_eligible follows SQL's three-valued AND: any FALSE -> FALSE, all TRUE -> TRUE,
+-- otherwise (something pending, nothing failed) NULL.
 CREATE TABLE eligibility_checks (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     solution_id     UUID REFERENCES solution_abstracts(id) ON DELETE CASCADE,
@@ -125,6 +129,8 @@ CREATE TABLE eligibility_checks (
     domain_ok       BOOLEAN,
     trl_ok          BOOLEAN,
     overall_eligible BOOLEAN GENERATED ALWAYS AS (dpiit_ok AND turnover_ok AND domain_ok AND trl_ok) STORED,
+    rule_results    JSONB,                -- every rule's outcome, as of checked_at:
+                                           -- [{ "rule": "dpiit", "status": "pass"|"fail"|"pending", "reason": "..." }, ...]
     checked_at      TIMESTAMPTZ DEFAULT now()
 );
 

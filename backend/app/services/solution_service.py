@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, contains_eager
 from app.models import Evaluation, Problem, SolutionAbstract, StartupProfile, User
 from app.schemas.common import int_to_trl, to_date_str, trl_to_int
 from app.schemas.solution import RubricScore, SolutionOut, SolutionSubmit
-from app.services import ml_sync
+from app.services import eligibility, ml_sync
 from app.services.ml_client import MLUnavailable
 from app.services.uploads import SOLUTIONS, delete_upload, save_pdf
 
@@ -171,7 +171,9 @@ def submit_solution(
         ml_sync.run_summarize(db, solution)
     except MLUnavailable:
         pass
-    # TODO(eligibility phase): run the eligibility rule engine here.
+    # No ML call of its own: if the startup's domain isn't classified yet, that rule is
+    # stored as pending and re-evaluated when /extract fills it in (ml_sync.run_extract).
+    eligibility.run_for_solution(db, solution)
     return solution.id
 
 

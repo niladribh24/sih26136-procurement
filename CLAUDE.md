@@ -59,7 +59,7 @@ These decisions were made explicitly by the user and applied to `backend/schema.
     - Only a `govt_officer` creates problems, and only the officer who posted a problem can edit it.
     - A solution's status can be changed by the officer who posted its problem or by any evaluator. Admins can't.
     - Uploaded PDFs go to `backend/uploads/` (the `UPLOAD_DIR` setting) under random names. A file only counts as a PDF if it starts with the `%PDF-` bytes (otherwise 415), and the limit is 10 MB (413).
-    - Rubric writing (`updateSolutionRubric`) and the eligibility engine are deferred to later phases. (ML fields were left pending in this round; #15 fills them.)
+    - Rubric writing (`updateSolutionRubric`) is deferred to a later phase; the eligibility engine is #16. (ML fields were left pending in this round; #15 fills them.)
 
 15. The ML service is integrated (`services/ml_client.py`, `services/ml_sync.py`; see `backend/docs/ml_service.md`).
     - **Schema:**
@@ -73,6 +73,12 @@ These decisions were made explicitly by the user and applied to `backend/schema.
     - **Failure handling:** ML failures never fail a request. Rows are committed first, then ML runs, and anything missing stays pending (NULL). An unranked solution's `matchExplanation` reads `"AI match analysis pending."` Run `python retry_ml.py` to fill in everything pending.
     - **Tests:** an autouse `FakeML` fixture (down by default) sits behind `httpx.MockTransport`, so pytest never contacts a real ML service. `tests/test_ml_live.py` runs only with `RUN_LIVE_ML=1`.
 
+16. The eligibility rule engine is built (`app/services/eligibility.py`; endpoints in `backend/docs/api_contract.md`).
+    - **Schema:** `eligibility_checks.rule_results JSONB` holds `[{rule, status, reason}]` for every rule. The four `*_ok` booleans mean TRUE = pass, FALSE = fail, NULL = pending. `overall_eligible`'s three-valued AND already gives FALSE on any fail and NULL while something is pending. There's one row per solution, updated in place on a re-run.
+    - **Rules:** `dpiit` passes on a present, well-formed number, since nothing sets `dpiit_verified` yet; the reason says whether it's verified. `turnover` fails above ₹25 Cr (the frontend's cap, kept deliberately even though DPIIT allows ₹100 Cr) and fails when the band isn't declared. `domain` is pending while the ML domain is NULL. `trl` requires claimed ≥ expected and passes when the problem has none. Add a rule with the `@rule` decorator.
+    - **When it runs:** on solution submission, and again for pending checks when `ml_sync.run_extract` fills in the domain (upload or `retry_ml.py`, which also backfills unchecked solutions).
+    - **Contract change:** `POST /api/solutions/:id/eligibility` re-runs the check (the owning officer or any evaluator). `GET` is for government roles only. The `Eligibility` response shape is new, with no `types.ts` equivalent yet; tell the frontend team.
+
 One knock-on rename made *because of* #4, not an independent decision: `pilots.missed_milestones_count` was renamed to `failed_milestones_count`, since "missed" is no longer a valid milestone status — flagged here in case that's not wanted.
 
 Known gap, not yet decided: `frontend/lib/api.ts`'s `logAuditEntry()` has no backing table in `schema.sql` at all. (The other old gap, the `extracted_tags` shape, was resolved in #15.)
@@ -85,7 +91,7 @@ Known gap, not yet decided: `frontend/lib/api.ts`'s `logAuditEntry()` has no bac
 - **Outbound calls:** `httpx` for the backend → ML service calls (never the reverse, never frontend → ML directly)
 
 ### `backend/` folder structure
-The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test), plus auth, the startup/problem/solution endpoints, and the ML integration. The pilot, evaluation, scale, and eligibility modules are still planned and get created as endpoints are built. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
+The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test), plus auth, the startup/problem/solution endpoints, the ML integration, and the eligibility engine. The pilot, evaluation, and scale modules are still planned and get created as endpoints are built. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
 
 ```
 backend/
@@ -96,6 +102,7 @@ backend/
 ├── requirements.txt
 ├── init_db.py                # applies schema.sql via psycopg (psql isn't on PATH); --reset wipes + rebuilds
 ├── retry_ml.py               # re-runs ML work left pending while the ML service was down; prints counts
+├── seed.py                   # SIH demo data through the service layer (so ML + eligibility run); --reset/--clear touch only @samarth.demo accounts
 ├── .env.example              # DATABASE_URL, JWT_SECRET, ML_SERVICE_URL, ML_TIMEOUT_SECONDS, FRONTEND_URL — never commit a real .env
 ├── app/
 │   ├── main.py                # FastAPI app instance, router registration, CORS
@@ -116,6 +123,7 @@ backend/
 │   │   ├── startup.py            # StartupProfileOut/Update, document shapes (no types.ts equivalent)
 │   │   ├── problem.py            # ProblemCreate/Update/Out (= types.ts Problem)
 │   │   ├── solution.py           # SolutionSubmit (multipart fields), SolutionOut (= types.ts Solution)
+│   │   ├── eligibility.py        # EligibilityOut (no types.ts equivalent; defined in api_contract.md)
 │   │   └── ml.py                 # copies of nlp/app/schemas.py response models; every ML response is validated against them
 │   ├── routers/                  # one router per docs/api_contract.md section: auth, startups, problems, solutions (pilots, ... to come)
 │   ├── services/
@@ -126,7 +134,7 @@ backend/
 │   │   ├── uploads.py            # PDF save (magic-byte check, 10 MB cap, random names) under UPLOAD_DIR
 │   │   ├── ml_client.py          # httpx wrapper for nlp /extract, /summarize, /rank; every failure → MLUnavailable
 │   │   ├── ml_sync.py            # runs the pipelines + stores results (extract→profile, summarize, rank_problem, retry_pending)
-│   │   ├── eligibility.py        # rule engine — runs automatically on solution submission, build early
+│   │   ├── eligibility.py        # rule engine (@rule registry) — runs on submission, re-runs when ML fills the domain
 │   │   └── pilot_state_machine.py # enforces the pilot status transitions server-side
 │   └── auth/                     # security.py (bcrypt, JWT), dependencies.py (get_current_user, require_role)
 └── tests/
@@ -136,7 +144,9 @@ backend/
     ├── test_startups.py          # profile, documents, upload limits
     ├── test_problems.py          # problem CRUD + role rules
     ├── test_solutions.py         # submit, visibility, status, PDF download
+    ├── test_eligibility.py       # rules unit-tested, pass/fail/pending end to end, ML re-evaluation, endpoint roles
     ├── test_ml.py                # extract/summarize/rank wiring, pending on failure, force-rank, retry_pending
+    ├── test_seed.py              # seed.py with ML down: counts, pending ML fields, the TRL failure, --clear
     ├── test_ml_live.py           # one end-to-end run against the REAL ML service; skipped unless RUN_LIVE_ML=1
     └── test_models_match_schema.py  # reflects the live DB and fails if models drift from schema.sql
 ```
@@ -179,6 +189,7 @@ python init_db.py --reset          # DEV ONLY: drop everything and re-apply
 pytest                             # drift, auth, startup/problem/solution tests (all roll back; no rows or files left behind)
 uvicorn app.main:app --reload --port 8000   # GET /health checks DB connectivity
 python retry_ml.py                 # fill in ML results left pending while the ML service was down
+python seed.py                     # demo data + prints logins (password Samarth@2026); --reset rebuilds it, --clear removes it
 $env:RUN_LIVE_ML = "1"; pytest tests/test_ml_live.py -q   # one real end-to-end ML check (ML service must be running)
 ```
 

@@ -171,8 +171,7 @@ On submission the backend also calls ML `/summarize` and stores the result
 (`solution_abstracts.ai_summary` + `summary_result`). The input is the solution PDF's
 text (pypdf), or the abstract if the PDF has under 200 characters of text (e.g. a scan).
 The summary is **not** in the response: `Solution` in `types.ts` has no field for it.
-
-**Not yet built:** the automatic eligibility check (next phase).
+Submission also runs the eligibility check (below) and stores the result.
 
 ### ML pending & retry
 The backend is the only caller of the ML service (`ML_SERVICE_URL`; timeouts: 2 s connect,
@@ -186,13 +185,36 @@ python retry_ml.py     # extracts pending documents, summarizes pending solution
 ```
 Ranking also catches up by itself the next time an officer/evaluator lists the problem's solutions.
 
-### Eligibility (Module 3) — build early, runs automatically
+### Eligibility (Module 3) — runs automatically on submission
 ```
-GET  /api/solutions/:id/eligibility
+GET  /api/solutions/:id/eligibility   govt_officer / evaluator / admin → 200 Eligibility   (startup: 403)
+POST /api/solutions/:id/eligibility   the officer who posted the problem, or any evaluator → 200 Eligibility
+                                      re-runs every rule against the current profile/problem
 ```
-No manual POST — eligibility will be computed automatically as part of `POST /api/problems/:id/solutions`
-(rule engine checks DPIIT status, turnover band, domain match, TRL, per `eligibility_checks` columns).
-Not built yet (next phase). `startup_profiles.domain` (from ML /extract) is now available for `domain_ok`.
+`types.ts` has no equivalent, so the shape is defined here:
+```
+Eligibility {
+  solutionId: string
+  status: "eligible" | "ineligible" | "pending"
+  overallEligible: boolean | null      // null while pending
+  checkedAt: string                    // ISO 8601
+  rules: { rule: "dpiit" | "turnover" | "domain" | "trl", label: string,
+           status: "pass" | "fail" | "pending", reason: string }[]
+}
+```
+The rules (`backend/app/services/eligibility.py`):
+
+| rule | pass | fail | pending |
+|---|---|---|---|
+| `dpiit` | DPIIT number present and valid (`^(DIPP\|DPIIT)\d{5}$`); the reason says whether it's verified | missing / malformed | — |
+| `turnover` | band `< ₹1Cr`, `₹1Cr–₹5Cr` or `₹5Cr–₹25Cr` | `> ₹25Cr`, or not declared | — |
+| `domain` | `startup_profiles.domain` (ML `/extract`) equals the problem's domain | different domain | domain not classified yet (ML pending, or no document uploaded) |
+| `trl` | claimed TRL ≥ the problem's, or the problem has none | below the problem's | — |
+
+`status` is `ineligible` if any rule fails, else `pending` if any is pending, else `eligible`.
+Pending checks are re-evaluated automatically when `/extract` classifies the startup's domain
+(on document upload, or by `python retry_ml.py`). Anything else (e.g. the startup declaring its
+turnover later) needs a re-run via POST. One `eligibility_checks` row per solution, updated in place.
 
 ### Evaluation (Module 4)
 ```

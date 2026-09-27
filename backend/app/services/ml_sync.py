@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Problem, SolutionAbstract, StartupDocument, StartupProfile
 from app.schemas.common import int_to_trl
-from app.services import ml_client
+from app.services import eligibility, ml_client
 from app.services.ml_client import MLUnavailable
 from app.services.uploads import upload_path
 
@@ -63,6 +63,8 @@ def run_extract(db: Session, doc: StartupDocument) -> None:
     doc.extract_result = result.model_dump()
     refresh_profile(db, db.get(StartupProfile, doc.startup_id))
     db.commit()
+    # The domain may have just been classified: settle any eligibility checks waiting on it.
+    eligibility.reevaluate_pending(db, doc.startup_id)
 
 
 # ---------- /summarize: solution PDF → ai_summary ----------
@@ -171,6 +173,15 @@ def retry_pending(db: Session) -> dict[str, tuple[int, int]]:
         )
     ).all()
     counts["rank"] = (sum(_try(rank_problem, db, p) for p in problems), len(problems))
+
+    # Last, so it sees the domains extract just filled in. Picks up solutions submitted
+    # before the engine existed, and checks still waiting on something. "Done" = nothing
+    # left pending.
+    sols = eligibility.pending_or_unchecked(db)
+    counts["eligibility"] = (
+        sum(eligibility.is_settled(eligibility.run_for_solution(db, s)) for s in sols),
+        len(sols),
+    )
     return counts
 
 

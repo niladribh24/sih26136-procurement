@@ -17,6 +17,8 @@ Copy-Item .env.example .env      # then fill in your postgres password
 ```powershell
 python init_db.py                # creates sih_db if missing, applies schema.sql once
 python init_db.py --reset        # DEV ONLY: wipes every table + row and re-applies schema.sql
+python seed.py                   # demo data (officers, evaluator, 5 startups, 4 problems, 9 solutions); prints logins
+python seed.py --reset           # remove the @samarth.demo data and seed it again (--clear: remove only)
 ```
 
 After editing `schema.sql`, run `--reset` and update the matching model in `app/models/`;

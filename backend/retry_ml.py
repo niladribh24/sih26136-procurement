@@ -2,8 +2,9 @@
 
     python retry_ml.py
 
-Extracts pending startup documents, summarizes pending solutions, and ranks every problem
-that has an unscored solution. Safe to run any time: finished items are skipped.
+Extracts pending startup documents, summarizes pending solutions, ranks every problem
+that has an unscored solution, and re-runs eligibility checks that were waiting on ML (the
+startup's domain) or never ran. Safe to run any time: finished items are skipped.
 """
 
 from app.database import SessionLocal

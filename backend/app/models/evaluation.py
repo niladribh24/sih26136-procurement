@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Boolean, Computed, ForeignKey, Numeric, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, timestamp_now, uuid_pk
@@ -24,6 +24,8 @@ class EligibilityCheck(Base):
     overall_eligible: Mapped[bool | None] = mapped_column(
         Boolean, Computed("dpiit_ok AND turnover_ok AND domain_ok AND trl_ok", persisted=True)
     )
+    # [{rule, status, reason}] for every rule — see app/services/eligibility.py.
+    rule_results: Mapped[list | None] = mapped_column(JSONB)
     checked_at: Mapped[datetime | None] = timestamp_now()
 
 
