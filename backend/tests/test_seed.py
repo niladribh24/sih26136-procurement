@@ -7,7 +7,20 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import seed
-from app.models import EligibilityCheck, Evaluation, Pilot, PilotStatusHistory, Problem, SolutionAbstract, StartupDocument, StartupProfile, User
+from app.models import (
+    EligibilityCheck,
+    Evaluation,
+    Pilot,
+    PilotStatusHistory,
+    Problem,
+    ProcurementRecord,
+    ProvenSolution,
+    ReplicationRequest,
+    SolutionAbstract,
+    StartupDocument,
+    StartupProfile,
+    User,
+)
 
 
 def _count(db: Session, stmt) -> int:
@@ -49,7 +62,7 @@ def test_seed_with_ml_down(db: Session, upload_dir: Path):
     assert all(c.dpiit_ok and c.turnover_ok for c in by_title.values())
 
     # One active pilot (eligibility pending with ML down still allows it).
-    pilot = db.scalar(select(Pilot).where(Pilot.problem_id.in_(problem_ids)))
+    pilot = db.scalar(select(Pilot).where(Pilot.problem_id == problems["P1"].id))
     assert pilot.status == "active"
     assert [m.status for m in pilot.milestones] == ["verified", "submitted", "pending"]
     assert [m.tranche_disbursed for m in pilot.milestones] == [True, False, False]
@@ -57,6 +70,16 @@ def test_seed_with_ml_down(db: Session, upload_dir: Path):
     assert sorted(history) == sorted(["proposed", "under_review", "approved", "active"])
     # Scored by the evaluator, so the officer did the verifying (conflict of interest rule).
     assert db.scalar(select(Evaluation).where(Evaluation.solution_id == pilot.solution_id)) is not None
+
+    # One procured pilot: a proven solution with a pending replication request from the urban officer.
+    procured = db.scalar(select(Pilot).where(Pilot.problem_id == problems["P2"].id))
+    assert procured.status == "procured" and procured.failed_milestones_count == 1
+    assert all(m.status == "verified" and m.tranche_disbursed for m in procured.milestones)
+    record = db.scalar(select(ProcurementRecord).where(ProcurementRecord.pilot_id == procured.id))
+    proven = db.scalar(select(ProvenSolution).where(ProvenSolution.procurement_id == record.id))
+    request = db.scalar(select(ReplicationRequest).where(ReplicationRequest.proven_solution_id == proven.id))
+    assert request.status == "pending"
+    assert db.get(User, request.requesting_dept_id).email == f"officer.urban@{seed.EMAIL_DOMAIN}"
 
 
 def test_generated_pdfs_have_text():
@@ -76,7 +99,8 @@ def test_clear_removes_rows_and_files(db: Session, upload_dir: Path):
     seed.seed(db)
     counts = seed.clear(db)
 
-    assert counts["users"] == 8 and counts["problems"] == 4 and counts["solutions"] == 9 and counts["pilots"] == 1
+    assert counts["users"] == 8 and counts["problems"] == 4 and counts["solutions"] == 9 and counts["pilots"] == 2
+    assert counts["proven_solutions"] == 1 and counts["replications"] == 1
     assert not seed.is_seeded(db)
     assert _count(db, select(Problem).where(Problem.title == seed.PROBLEMS[0]["title"])) == 0
     assert list(upload_dir.rglob("*.pdf")) == []

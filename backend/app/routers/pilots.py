@@ -1,12 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user, require_role
+from app.auth import GOV_ROLES, get_current_user, require_role
 from app.database import get_db
 from app.models import User
-from app.schemas.pilot import DeliverableSubmit, MilestoneVerify, PilotCreate, PilotOut, PilotStatusUpdate
+from app.schemas.pilot import AuditEntryIn, DeliverableSubmit, MilestoneVerify, PilotCreate, PilotOut, PilotStatusUpdate
 from app.services import pilot_service
 
 router = APIRouter(prefix="/api/pilots", tags=["pilots"])
@@ -79,3 +79,12 @@ def disburse_tranche(
     pilot = pilot_service.get_pilot(db, user, pilot_id)
     pilot_service.disburse_tranche(db, user, pilot, milestone_id)
     return pilot_service.pilot_out(db, user, pilot.id)
+
+
+@router.post("/{pilot_id}/audit", status_code=status.HTTP_204_NO_CONTENT)
+def log_audit_entry(
+    pilot_id: str, req: AuditEntryIn, user: User = Depends(require_role(*GOV_ROLES)), db: Session = Depends(get_db)
+) -> Response:
+    """api.ts logAuditEntry: a free-form audit note on a pilot, stored with the caller's account."""
+    pilot_service.log_audit(db, user, pilot_service.get_pilot(db, user, pilot_id), req)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

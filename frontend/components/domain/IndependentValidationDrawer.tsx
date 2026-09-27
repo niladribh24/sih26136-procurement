@@ -196,7 +196,7 @@ export const IndependentValidationDrawer: React.FC<IndependentValidationDrawerPr
               </span>
             </div>
             <p className="text-[11px] text-[var(--ink-muted)]">
-              Generates immutable cryptographic sanction memo in the trial audit register.
+              Recorded against your account with a timestamp, and releases this milestone&apos;s tranche.
             </p>
           </div>
         ) : (
@@ -208,7 +208,7 @@ export const IndependentValidationDrawer: React.FC<IndependentValidationDrawerPr
               <span>Tranche Frozen: ₹{(milestone.trancheAmount / 100000).toFixed(2)} Lakhs</span>
             </div>
             <p className="text-[11px] text-[var(--danger)]/90">
-              Deliverable flagged as non-compliant with benchmark threshold. Pilot paused for remediation. No funds will be released.
+              Deliverable flagged as non-compliant with the target KPI. No funds are released; the startup can resubmit a corrected deliverable.
             </p>
           </div>
         )}

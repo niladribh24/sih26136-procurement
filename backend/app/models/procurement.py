@@ -16,7 +16,7 @@ class ProcurementRecord(Base):
     __tablename__ = "procurement_records"
 
     id: Mapped[uuid.UUID] = uuid_pk()
-    pilot_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("pilots.id"))
+    pilot_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("pilots.id"), unique=True)
     procurement_package_url: Mapped[str | None] = mapped_column(Text)
     compliance_checklist: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     status: Mapped[str | None] = mapped_column(Text, server_default=text("'pending'"))
@@ -27,7 +27,9 @@ class ProvenSolution(Base):
     __tablename__ = "proven_solutions"
 
     id: Mapped[uuid.UUID] = uuid_pk()
-    procurement_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("procurement_records.id"))
+    procurement_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("procurement_records.id"), unique=True
+    )
     replicable: Mapped[bool | None] = mapped_column(Boolean, server_default=true())
     replication_requests_count: Mapped[int | None] = mapped_column(Integer, server_default=text("0"))
 

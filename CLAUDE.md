@@ -10,16 +10,16 @@ The repo is split into three independently-owned services that were built in par
 
 ```
 frontend/   Next.js 16 web app
-backend/    FastAPI backend: auth, Identify stage, rubric, pilots/milestones + schema.sql + docs
+backend/    FastAPI backend: all four stages (Identify, Pilot, Procure, Scale) + schema.sql + docs
 nlp/        FastAPI microservice (Python) — extract/summarize/rank pipelines
 docs/       Cross-cutting specs (NLP requirements, frontend API contract, demo runbook)
 ```
 
 **Current reality check:** `frontend/lib/api.ts` has two implementations of `ApiService`, and `export const api` picks one from `NEXT_PUBLIC_USE_MOCK_API`:
-- **`realApi`** (the default) calls the FastAPI backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`), using the URLs in `backend/docs/api_contract.md`. It covers auth, profile/documents, problems, solutions, ranking, eligibility, rubric scoring, and pilots/milestones/tranches.
+- **`realApi`** (the default) calls the FastAPI backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`), using the URLs in `backend/docs/api_contract.md`. It implements every `ApiService` method: auth, profile/documents, problems, solutions, ranking, eligibility, rubric scoring, pilots/milestones/tranches, procurement, proven solutions, replication requests, and the audit log.
 - **`mockApi`** (`NEXT_PUBLIC_USE_MOCK_API=true`) is the original `localStorage` mock, and needs no backend.
 
-Methods with no backend endpoint yet (scale, replication, `logAuditEntry`) are spread from `mockApi` into `realApi`, so they stay on `localStorage` even in backend mode. Before changing either side, check which methods are actually real in `realApi`.
+`realApi` no longer spreads `mockApi`, so nothing in backend mode falls back to `localStorage`. The `ApiService` type makes the build fail if a new method is added to the interface without a real implementation.
 
 ## Working agreement (read this first)
 
@@ -121,9 +121,34 @@ These decisions were made explicitly by the user and applied to `backend/schema.
       - `apiFetchOrNull` takes fetch options.
     - **Seed:** `seed.py` adds one active pilot on P1 (KrishiNetra): the evaluator scores it, the officer approves and starts it, milestone 1 is verified and paid, and milestone 2 is submitted. `clear()` deletes pilots first, because pilots' FKs have no ON DELETE CASCADE.
 
+19. The Procure and Scale stages are built (`services/procurement_service.py`, `services/scale_service.py`, `routers/scale.py`; endpoints in `backend/docs/api_contract.md`).
+    - **Schema:**
+      - `procurement_records.pilot_id` and `proven_solutions.procurement_id` are now UNIQUE: one procurement per pilot, one proven solution per procurement. The UNIQUE indexes also serve the joins.
+      - Added an index on `replication_requests(pilot_id)`.
+      - New table `audit_entries(pilot_id, action, actor_name, actor_role, hash, recorded_by, created_at)` backs `logAuditEntry`. Nothing calls it from a screen yet. This closes the old audit-table gap.
+    - **Procurement:** the owning officer moves Completed → Recommended for procurement → Procured through the state machine. The move to Procured writes a `procurement_records` row (with a compliance snapshot) and a `proven_solutions` row in the same transaction.
+    - **Pilot fields:**
+      - `Pilot.sanctionDocketId` is the procurement record id.
+      - `sanctionOrderRef` is `SAN/<year>/<pilot code>`, derived at read time.
+      - `performanceScore` is `100 × (0.4·rubric/100 + 0.4·verified/(verified+failed verifications) + 0.2·on-time share)`. It re-weights to 2/3 and 1/3 with no rubric, and is omitted until a milestone is verified (`pilot_service.performance_score`).
+    - **Scale:**
+      - `GET /api/proven-solutions` returns `ScaleSolution`. Its `id` is the **pilot id**, so `ReplicationModal`'s `pilotId: scaleSolution.id` is a real pilot id.
+      - `deployedUnits` is 1 plus the in_pilot replications. `budgetPerUnit` is the pilot budget per deployment.
+    - **Replication:**
+      - The contract URL changed: `POST /api/replications {pilotId, ...}` replaces `POST /api/proven-solutions/:id/replicate`.
+      - Any govt_officer can request one, except the officer who ran the originating pilot (403). 409 if they already have an open request.
+      - `PATCH /api/replications/:id/status` moves pending → approved (originating officer only) and approved → in_pilot (requesting officer only). `ApiService` gained `updateReplicationStatus`.
+    - **Frontend:**
+      - The stepper and stage badge map to the real statuses (`lifecycleStage`, `directSanctionEligible` in `lib/pilotStateMachine.ts`).
+      - The "Eligible for Direct Sanction" card reflects the pilot's state.
+      - The docket is a draft until Procured.
+      - Claims we can't back up were reworded: the GeM gateway, "cryptographic/immutable", the fake hash and seal text, and the invented SLA terms.
+    - **Skipped:** IP agreements, KPI logs, and validations. The frontend never calls them.
+    - **Seed:** besides the KrishiNetra active pilot, `seed.py` adds BhoomiSense on P2. That pilot goes to Procured (milestone 2 fails once), and the urban officer has a pending replication request on it.
+
 One knock-on rename made *because of* #4, not an independent decision: `pilots.missed_milestones_count` was renamed to `failed_milestones_count`, since "missed" is no longer a valid milestone status — flagged here in case that's not wanted.
 
-Known gap, not yet decided: `frontend/lib/api.ts`'s `logAuditEntry()` has no backing table in `schema.sql` at all. (The other old gap, the `extracted_tags` shape, was resolved in #15.)
+No known gaps remain between `frontend/lib/api.ts` and the backend. `logAuditEntry` got its table in #19, and the `extracted_tags` shape was resolved in #15.
 
 ### Stack
 - **Framework:** FastAPI
@@ -133,7 +158,7 @@ Known gap, not yet decided: `frontend/lib/api.ts`'s `logAuditEntry()` has no bac
 - **Outbound calls:** `httpx` for the backend → ML service calls (never the reverse, never frontend → ML directly)
 
 ### `backend/` folder structure
-The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test), plus auth, the startup/problem/solution endpoints, the ML integration, the eligibility engine, rubric scoring, and pilots/milestones. The scale module is still planned. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
+The skeleton exists (config, database, models, `/health`, `init_db.py`, drift test), plus auth, the startup/problem/solution endpoints, the ML integration, the eligibility engine, rubric scoring, pilots/milestones, procurement, and scale/replication. Only the IP agreement, KPI log, and validation tables have no endpoints. Models only map onto tables `schema.sql` creates; never call `Base.metadata.create_all()`.
 
 ```
 backend/
@@ -155,7 +180,7 @@ backend/
 │   │   ├── startup.py          # startup_profiles, startup_documents
 │   │   ├── problem.py          # problems, solution_abstracts
 │   │   ├── evaluation.py       # eligibility_checks, evaluations
-│   │   ├── pilot.py            # pilots, pilot_milestones (tranche fields inline — no payment_tranches table)
+│   │   ├── pilot.py            # pilots, pilot_milestones (tranche fields inline), pilot_status_history, audit_entries
 │   │   ├── agreement.py        # ip_agreements, kpi_logs, validations
 │   │   └── procurement.py      # procurement_records, proven_solutions, replication_requests
 │   ├── schemas/                 # Pydantic request/response models — mirrors frontend/lib/types.ts shapes
@@ -166,9 +191,10 @@ backend/
 │   │   ├── problem.py            # ProblemCreate/Update/Out (= types.ts Problem)
 │   │   ├── solution.py           # SolutionSubmit (multipart fields), SolutionOut (= types.ts Solution)
 │   │   ├── eligibility.py        # EligibilityOut (no types.ts equivalent; defined in api_contract.md)
-│   │   ├── pilot.py              # PilotOut/MilestoneOut (= types.ts Pilot/Milestone), PilotCreate, deliverable/verify bodies
+│   │   ├── pilot.py              # PilotOut/MilestoneOut (= types.ts Pilot/Milestone), PilotCreate, deliverable/verify/audit bodies
+│   │   ├── scale.py              # ScaleSolutionOut, ReplicationRequestOut (= types.ts), ReplicationCreate/StatusUpdate
 │   │   └── ml.py                 # copies of nlp/app/schemas.py response models; every ML response is validated against them
-│   ├── routers/                  # one router per docs/api_contract.md section: auth, startups, problems, solutions, pilots (scale to come)
+│   ├── routers/                  # one router per docs/api_contract.md section: auth, startups, problems, solutions, pilots, scale
 │   ├── services/
 │   │   ├── auth_service.py       # register_user, authenticate, build_session (UserSession + dpiit join)
 │   │   ├── startup_service.py    # profile read/update, document upload
@@ -178,7 +204,9 @@ backend/
 │   │   ├── ml_client.py          # httpx wrapper for nlp /extract, /summarize, /rank; every failure → MLUnavailable
 │   │   ├── ml_sync.py            # runs the pipelines + stores results (extract→profile, summarize, rank_problem, retry_pending)
 │   │   ├── eligibility.py        # rule engine (@rule registry) — runs on submission, re-runs when ML fills the domain
-│   │   ├── pilot_service.py      # pilot create/read, milestone deliverable/verify/disburse, conflict-of-interest check
+│   │   ├── pilot_service.py      # pilot create/read, milestones, conflict-of-interest check, performance_score(), audit log
+│   │   ├── procurement_service.py # the procurement_records + proven_solutions rows written on → Procured
+│   │   ├── scale_service.py      # proven-solutions directory, replication requests + their pending→approved→in_pilot rules
 │   │   └── pilot_state_machine.py # TRANSITIONS + transition(): the only writer of pilots.status; records pilot_status_history
 │   └── auth/                     # security.py (bcrypt, JWT), dependencies.py (get_current_user, require_role)
 └── tests/
@@ -192,6 +220,9 @@ backend/
     ├── test_rubric.py            # rubric save, ranges, roles, latest wins
     ├── test_pilots.py            # pilot creation (ineligible/duplicate/422), visibility, roles, milestone flow, COI
     ├── test_pilot_state_machine.py # every (from, to) pair: legal ones recorded in history, the rest 400
+    ├── test_procurement.py       # → Recommended → Procured writes both rows atomically, roles, performance score formula
+    ├── test_replications.py      # create roles/409/404, status steps and who may take them, deployedUnits, visibility
+    ├── test_audit.py             # POST /api/pilots/:id/audit roles and storage
     ├── test_ml.py                # extract/summarize/rank wiring, pending on failure, force-rank, retry_pending
     ├── test_cors.py              # the frontend origin (localhost and 127.0.0.1 :3000) passes CORS preflight; unknown origins don't
     ├── test_seed.py              # seed.py with ML down: counts, pending ML fields, the TRL failure, --clear
@@ -235,7 +266,7 @@ pip install -r requirements.txt
 Copy-Item .env.example .env        # fill in postgres password
 python init_db.py                  # create sih_db if missing + apply schema (no-op if already applied)
 python init_db.py --reset          # DEV ONLY: drop everything and re-apply
-pytest                             # drift, auth, startup/problem/solution/pilot tests (all roll back; no rows or files left behind)
+pytest                             # drift + every endpoint's tests (all roll back; no rows or files left behind)
 uvicorn app.main:app --reload --port 8000   # GET /health checks DB connectivity
 python retry_ml.py                 # fill in ML results left pending while the ML service was down
 python seed.py                     # demo data + prints logins (password Samarth@2026); --reset rebuilds it, --clear removes it

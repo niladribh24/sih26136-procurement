@@ -170,3 +170,46 @@ def pilot_setup(client) -> dict:
 
 def set_pilot_status(client, token: str, pilot_id: str, status: str):
     return client.patch(f"/api/pilots/{pilot_id}/status", json={"status": status}, headers=auth(token))
+
+
+def complete_pilot(client, s: dict) -> dict:
+    """Start the pilot_setup() pilot and deliver + verify every milestone, so it's Completed.
+    Returns the final Pilot response."""
+    officer, startup, pid = s["officer"]["token"], s["startup"]["token"], s["pilot"]["id"]
+    assert set_pilot_status(client, officer, pid, "Active").status_code == 200
+    res = None
+    for m in s["pilot"]["milestones"]:
+        url = f"/api/pilots/{pid}/milestones/{m['id']}"
+        deliver = {"achievedKPI": "met", "fileUrl": "/deliverables/x.pdf"}
+        assert client.patch(f"{url}/deliverable", json=deliver, headers=auth(startup)).status_code == 200
+        verify = {"verifiedBy": "Validator", "remarks": "ok", "status": "verified"}
+        res = client.patch(f"{url}/verify", json=verify, headers=auth(officer))
+        assert res.status_code == 200, res.text
+    assert res.json()["status"] == "Completed"
+    return res.json()
+
+
+def procured_setup(client) -> dict:
+    """pilot_setup() taken all the way to Procured (so it's a proven solution)."""
+    s = pilot_setup(client)
+    complete_pilot(client, s)
+    token, pid = s["officer"]["token"], s["pilot"]["id"]
+    assert set_pilot_status(client, token, pid, "Recommended for procurement").status_code == 200
+    res = set_pilot_status(client, token, pid, "Procured")
+    assert res.status_code == 200, res.text
+    s["pilot"] = res.json()
+    return s
+
+
+def replication_body(pilot_id: str, **overrides) -> dict:
+    body = {
+        "pilotId": pilot_id,
+        "requestingOfficerName": "Shri R. Annamalai",
+        "requestingOfficerEmail": "ccf@example.gov.in",
+        "targetDeploymentSite": "Coimbatore",
+        "targetQuantity": 30,
+        "targetBudget": 5_400_000,
+        "deploymentTimelineWeeks": 12,
+    }
+    body.update(overrides)
+    return body

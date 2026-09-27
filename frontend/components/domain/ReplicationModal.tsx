@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { api } from "@/lib/api";
 import { getSession } from "@/lib/auth";
+import { errorMessage } from "@/lib/http";
 import { ScaleSolution } from "@/lib/types";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
@@ -23,11 +24,10 @@ export const ReplicationModal: React.FC<ReplicationModalProps> = ({
 }) => {
   const session = getSession();
 
-  const [department, setDepartment] = useState(
-    session?.department || "Forest Department, Govt of Tamil Nadu"
-  );
-  const [officerName, setOfficerName] = useState(session?.name || "Shri R. Annamalai (CCF)");
-  const [officerEmail, setOfficerEmail] = useState(session?.email || "ccf.coimbatore@tn.gov.in");
+  // The requesting department is taken from the signed-in account server-side, so it's shown, not edited.
+  const department = session?.orgName || session?.department || "";
+  const [officerName, setOfficerName] = useState(session?.name || "");
+  const [officerEmail, setOfficerEmail] = useState(session?.email || "");
   const [deploymentSite, setDeploymentSite] = useState("Coimbatore-Palakkad Railway Corridor");
   const [quantity, setQuantity] = useState("30");
   const [targetBudget, setTargetBudget] = useState("3800000");
@@ -44,7 +44,7 @@ export const ReplicationModal: React.FC<ReplicationModalProps> = ({
 
     try {
       await api.createReplicationRequest({
-        pilotId: scaleSolution.id,
+        pilotId: scaleSolution.id, // ScaleSolution.id is the proven solution's pilot id
         solutionTitle: scaleSolution.title,
         startupName: scaleSolution.startupName,
         originatingDepartment: scaleSolution.originatingDepartment,
@@ -59,8 +59,8 @@ export const ReplicationModal: React.FC<ReplicationModalProps> = ({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err?.message || "Failed to record inter-departmental replication request.");
+    } catch (err) {
+      setError(errorMessage(err, "Failed to record the replication request."));
     } finally {
       setSubmitting(false);
     }
@@ -88,12 +88,11 @@ export const ReplicationModal: React.FC<ReplicationModalProps> = ({
           </div>
         </div>
 
-        <Input
-          label="Requesting Ministry / State Department"
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-          required
-        />
+        <div className="text-xs">
+          <span className="text-[var(--ink-muted)] block mb-0.5">Requesting Ministry / Department</span>
+          <strong className="text-[var(--ink)]">{department || "Your department"}</strong>
+          <span className="text-[11px] text-[var(--ink-muted)] block">From your signed-in account.</span>
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Input
@@ -149,7 +148,7 @@ export const ReplicationModal: React.FC<ReplicationModalProps> = ({
 
         <div className="p-3 bg-[var(--positive-soft)] border border-[var(--positive)]/30 rounded-[6px] text-[11px] text-[var(--positive)]">
           <strong>Direct Requisition Clause: </strong>
-          Adoption proceeds under GFR Rule 149 without re-conducting preliminary pilot trials, saving an estimated 4–6 months of administrative review.
+          The originating department reviews this request. Once approved, adoption can cite the completed pilot instead of re-running it.
         </div>
 
         <div className="flex justify-end gap-2 pt-3 border-t border-[var(--line)]">

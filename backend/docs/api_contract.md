@@ -237,8 +237,16 @@ Response is `Pilot` from `frontend/lib/types.ts` exactly (optional fields omitte
   `ministry` from the problem, `leadOfficerName` is the name of the officer who posted the problem.
 - `totalBudget` = `pilots.budget_cap`; `durationWeeks` = `(end_date − start_date) / 7`;
   `completionDate` = when the pilot entered `completed` (from `pilot_status_history`).
-- `sanctionDocketId`, `sanctionOrderRef`, `performanceScore` are always omitted (no data yet;
-  procurement is deferred).
+- `performanceScore` (0–100, 1 decimal) is omitted until a milestone is verified:
+  ```
+  score = 100 × (0.4·R + 0.4·Q + 0.2·T)
+  R = latest rubric total / 100
+  Q = verified milestones / (verified milestones + failed_milestones_count)
+  T = share of verified milestones verified on or before their due date (IST)
+  ```
+  With no rubric, R is dropped and Q/T weigh 2/3 and 1/3 (`pilot_service.performance_score`).
+- `sanctionDocketId` (the `procurement_records.id`) and `sanctionOrderRef` (`SAN/<year>/<pilot code>`,
+  derived at read time) are present only once the pilot is Procured.
 
 **Visibility:** a startup sees only its own pilots (anyone else's is a 404); government roles see all.
 ```
@@ -258,6 +266,12 @@ GET   /api/pilots/:idOrCode           any logged-in user → 200 Pilot          
 PATCH /api/pilots/:idOrCode/status    the officer who posted the problem → 200 Pilot   (api.ts updatePilotStatus)
   in:  { status }   a PilotStatus label; only legal moves (§3), else 400
        Approved → Active re-dates the pilot to start today (milestone due weeks are kept)
+       Recommended for procurement → Procured also writes the procurement records (Module 9),
+       in the same transaction
+POST  /api/pilots/:idOrCode/audit     government roles → 204   (api.ts logAuditEntry)
+  in:  { action, actorName?, actorRole?, hash? }   actorName/actorRole default to the caller's
+       stored in audit_entries with recorded_by = the caller. Free-form notes: status changes are
+       already in pilot_status_history.
 ```
 `PATCH /api/solutions/:id/status` to `shortlisted` gets the same ineligible → 409 check.
 
@@ -288,7 +302,8 @@ PATCH /api/pilots/:pilotId/milestones/:milestoneId/disburse        the officer w
 
 ### IP / Data agreements, KPIs, independent validation (cross-cutting) — deferred
 Tables (`ip_agreements`, `kpi_logs`, `validations`) exist in `schema.sql` but **no
-endpoints are planned yet** — nothing in `frontend/lib/api.ts` calls them today.
+endpoints are planned yet** — nothing in the frontend calls them (checked again when the
+Procure/Scale stages were built). Milestone verification already covers independent validation.
 Build these last, after everything the frontend actually uses is working. Sketch,
 for when we get there:
 ```
@@ -299,31 +314,50 @@ GET   /api/pilots/:id/kpi
 POST  /api/pilots/:id/validate        { outcome, notes }   -- validator must != the evaluator on this solution
 ```
 
-### Procurement (Module 9) — deferred
-Table (`procurement_records`) exists but **no endpoints are planned yet** — the
-frontend's Sanction Docket screen currently reads `sanctionDocketId` /
-`sanctionOrderRef` straight off `Pilot` with no dedicated procurement call. Sketch:
-```
-POST /api/pilots/:id/procure         -> pulls pilot KPIs + eligibility + budget from DB,
-                                         renders procurement_package (PDF/JSON), returns url
-GET  /api/procurement/:id
-```
+### Procurement (Module 9)
+There's no procurement endpoint of its own: the officer who posted the problem moves the pilot
+Completed → Recommended for procurement → Procured with `PATCH /api/pilots/:id/status`. The move
+to Procured writes, in one transaction with the status change and its history row:
+- a `procurement_records` row: `status = 'issued'`, `procured_at = now()`, and a `compliance_checklist`
+  snapshot `{ eligibility_status, milestones_total, milestones_verified, all_milestones_verified,
+  failed_verifications, rubric_total, performance_score }`
+- a `proven_solutions` row pointing at it. The pilot is now listed under Scale.
+
+One procurement per pilot and one proven solution per procurement (UNIQUE in `schema.sql`).
+`procurement_package_url` stays NULL: nothing generates a package yet.
 
 ### Scale (Module 10)
 ```
-GET  /api/proven-solutions                       -> all completed procurements, filterable by domain
-GET  /api/replications                            -> all replication requests
-POST /api/proven-solutions/:id/replicate
+GET   /api/proven-solutions              any logged-in user → 200 ScaleSolution[]  newest procurement first
+                                         (api.ts getScaleSolutions)
+GET   /api/replications                  any logged-in user → 200 ReplicationRequest[]  newest first
+                                         (api.ts getReplications) — a startup sees only requests for its own solutions
+POST  /api/replications                  govt_officer → 201 ReplicationRequest   (api.ts createReplicationRequest)
   in:  { pilotId, requestingOfficerName, requestingOfficerEmail, targetDeploymentSite,
          targetQuantity, targetBudget?, deploymentTimelineWeeks? }
-  -> creates a replication_requests row (status defaults to 'pending')
+       pilotId: the proven solution's pilot, id or code (= ScaleSolution.id)
+       other ReplicationRequest fields api.ts sends are ignored (joined at read time)
+  403  the officer who ran the originating pilot (requests come from other departments)
+  404  the pilot isn't procured
+  409  the same officer already has an open (pending/approved) request for this solution
+  also increments proven_solutions.replication_requests_count, same transaction
+PATCH /api/replications/:id/status       govt_officer → 200 ReplicationRequest   (api.ts updateReplicationStatus)
+  in:  { status }   pending → approved: only the officer who ran the originating pilot
+                    approved → in_pilot: only the officer who made the request
+                    any other move → 400; in_pilot is final
 ```
-`replication_requests` was extended with `pilot_id` and the `requesting_officer_*`/`target_*`/
-`deployment_timeline_weeks` columns (see `schema.sql`), and its status enum changed to
-`pending/approved/in_pilot` (not the old `requested/approved/rejected`) — but it stays
-normalized. `solutionTitle`, `startupName`, `originatingDepartment`, and
-`requestingDepartment` in the `GET` responses are **not** stored columns — the API layer
-fills them in via joins at read time:
+`ScaleSolution` from `frontend/lib/types.ts`:
+- `id` is the **pilot's** id (so a replication's `pilotId` is `scaleSolution.id`), `pilotCode` its code.
+- `title` = the solution title, `summary` = its ML summary (or abstract), `domain` /
+  `originatingDepartment` from the problem, `validationDate` = `procured_at`.
+- `performanceScore` as on `Pilot`; `totalBudget` = the pilot budget.
+- `deployedUnits` = 1 (the original pilot) + replication requests that reached `in_pilot`.
+- `budgetPerUnit` = the pilot budget per deployment, formatted like `₹23,00,000`.
+- `gfrExemptionClause` is a constant: `GFR 2017 Rule 194 (startup innovation procurement)`.
+
+`replication_requests` stays normalized. `solutionTitle`, `startupName`, `originatingDepartment`,
+and `requestingDepartment` in the responses are **not** stored columns — the API layer fills them
+in via joins at read time:
 - `solutionTitle` / `startupName` / `originatingDepartment`: `proven_solution_id` →
   `procurement_records` → `pilots` → `problems` / `solution_abstracts` / `startup_profiles`
 - `requestingDepartment`: `requesting_dept_id` → `users.org_name`
@@ -373,5 +407,5 @@ Milestone status is a separate, unrelated state machine:
    rubric scoring, scale/replication.
 2. The eligibility rule engine specifically — build it alongside solution submission,
    not after.
-3. IP agreements, KPI logs, independent validations, procurement records — tables
-   only for now, endpoints later once the frontend grows UI for them.
+3. IP agreements, KPI logs, independent validations — tables only for now, endpoints later
+   once the frontend grows UI for them.

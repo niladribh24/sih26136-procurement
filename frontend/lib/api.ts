@@ -111,7 +111,10 @@ export interface ApiService {
   rerunEligibility: (solutionId: string) => Promise<Eligibility>;
   getScaleSolutions: () => Promise<ScaleSolution[]>;
   getReplications: () => Promise<ReplicationRequest[]>;
+  /** `req.pilotId` is the proven solution's pilot (ScaleSolution.id). Department names are filled in server-side. */
   createReplicationRequest: (req: Omit<ReplicationRequest, "id" | "requestedAt" | "status">) => Promise<ReplicationRequest>;
+  /** pending → approved (originating officer), approved → in_pilot (requesting officer). */
+  updateReplicationStatus: (requestId: string, status: ReplicationRequest["status"]) => Promise<ReplicationRequest>;
   logAuditEntry: (entry: {
     pilotId: string;
     action: string;
@@ -535,6 +538,17 @@ const mockApi: ApiService = {
     return created;
   },
 
+  updateReplicationStatus: async (requestId, status) => {
+    const reps = await mockApi.getReplications();
+    const rep = reps.find((r) => r.id === requestId);
+    if (!rep) throw new ApiError(404, "Replication request not found.");
+    const legal = (rep.status === "pending" && status === "approved") || (rep.status === "approved" && status === "in_pilot");
+    if (!legal) throw new ApiError(400, `Cannot move a replication request from "${rep.status}" to "${status}".`);
+    rep.status = status;
+    setStored(STORAGE_KEYS.REPLICATIONS, reps);
+    return rep;
+  },
+
   logAuditEntry: async (entry: {
     pilotId: string;
     action: string;
@@ -543,21 +557,19 @@ const mockApi: ApiService = {
     hash?: string;
   }): Promise<void> => {
     const key = `samarth_audit_${entry.pilotId}`;
-    const existing = getStored<any[]>(key, []);
+    const existing = getStored<unknown[]>(key, []);
     setStored(key, [...existing, { ...entry, timestamp: new Date().toISOString() }]);
   },
 };
 
 // ---------------------------------------------------------------------------
 // Real implementation: calls the FastAPI backend (backend/docs/api_contract.md).
-// Scale, replication and audit methods have no backend endpoints yet, so they
-// fall through to the mock via the spread below.
+// Every method is implemented here: nothing falls back to the mock, and the
+// ApiService type makes the build fail if a method is missing.
 // ---------------------------------------------------------------------------
 const enc = encodeURIComponent;
 
 const realApi: ApiService = {
-  ...mockApi,
-
   // Problems
   getProblems: () => apiFetch<Problem[]>("/api/problems"),
 
@@ -668,6 +680,33 @@ const realApi: ApiService = {
     const form = new FormData();
     form.append("file", file);
     return apiFetch<DocumentUploadResult>("/api/startups/me/documents", { method: "POST", form });
+  },
+
+  // Scale & replication
+  getScaleSolutions: () => apiFetch<ScaleSolution[]>("/api/proven-solutions"),
+
+  getReplications: () => apiFetch<ReplicationRequest[]>("/api/replications"),
+
+  createReplicationRequest: (req) =>
+    apiFetch<ReplicationRequest>("/api/replications", {
+      method: "POST",
+      json: {
+        pilotId: req.pilotId,
+        requestingOfficerName: req.requestingOfficerName,
+        requestingOfficerEmail: req.requestingOfficerEmail,
+        targetDeploymentSite: req.targetDeploymentSite,
+        targetQuantity: req.targetQuantity,
+        targetBudget: req.targetBudget,
+        deploymentTimelineWeeks: req.deploymentTimelineWeeks,
+      },
+    }),
+
+  updateReplicationStatus: (requestId, status) =>
+    apiFetch<ReplicationRequest>(`/api/replications/${enc(requestId)}/status`, { method: "PATCH", json: { status } }),
+
+  // Audit
+  logAuditEntry: async ({ pilotId, ...entry }) => {
+    await apiFetch<null>(`/api/pilots/${enc(pilotId)}/audit`, { method: "POST", json: entry });
   },
 };
 

@@ -10,10 +10,20 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager, selectinload
 
-from app.models import Evaluation, Pilot, PilotMilestone, Problem, SolutionAbstract, StartupProfile, User
+from app.models import (
+    AuditEntry,
+    Evaluation,
+    Pilot,
+    PilotMilestone,
+    ProcurementRecord,
+    Problem,
+    SolutionAbstract,
+    StartupProfile,
+    User,
+)
 from app.schemas.common import IST, to_date_str
-from app.schemas.pilot import DeliverableSubmit, MilestoneOut, MilestoneVerify, PilotCreate, PilotOut
-from app.services import eligibility, pilot_state_machine
+from app.schemas.pilot import AuditEntryIn, DeliverableSubmit, MilestoneOut, MilestoneVerify, PilotCreate, PilotOut
+from app.services import eligibility, pilot_state_machine, procurement_service, solution_service
 from app.services.pilot_state_machine import LABELS
 
 
@@ -25,7 +35,7 @@ def _today() -> date:
     return datetime.now(IST).date()
 
 
-def _base_query() -> Select:
+def base_query() -> Select:
     # One query for the pilots with their problem, startup profile and the startup's user row;
     # milestones come in one extra SELECT ... WHERE pilot_id IN (...) for the whole list
     # (selectinload). Lazy loading them per pilot would be the N+1 problem.
@@ -82,14 +92,62 @@ def _milestone_out(m: PilotMilestone, start: date | None) -> MilestoneOut:
     )
 
 
+def performance_score(
+    rubric_total: float | None, milestones: Sequence[PilotMilestone], failed_count: int
+) -> float | None:
+    """A pilot's performance score, 0-100 (Pilot.performanceScore, ScaleSolution.performanceScore).
+
+        score = 100 x (0.4 R + 0.4 Q + 0.2 T), rounded to 1 decimal
+
+        R  rubric:   the proposal's latest rubric total / 100
+        Q  quality:  verified milestones / (verified milestones + failed verifications), where
+                     failed verifications is pilots.failed_milestones_count, so a milestone that
+                     failed once and then passed still costs something
+        T  on time:  share of verified milestones verified on or before their due date (IST)
+
+    With no rubric, R is left out and the other weights scale up (Q 2/3, T 1/3). None until at
+    least one milestone is verified: there's nothing to score yet.
+    """
+    verified = [m for m in milestones if m.status == "verified"]
+    if not verified:
+        return None
+    quality = len(verified) / (len(verified) + (failed_count or 0))
+    on_time = sum(
+        1 for m in verified
+        if m.due_date is None or (m.verified_at is not None and m.verified_at.astimezone(IST).date() <= m.due_date)
+    ) / len(verified)
+    if rubric_total is None:
+        score = (2 * quality + on_time) / 3
+    else:
+        score = 0.4 * rubric_total / 100 + 0.4 * quality + 0.2 * on_time
+    return round(score * 100, 1)
+
+
+def scores(db: Session, pilots: Sequence[Pilot]) -> dict[uuid.UUID, float | None]:
+    """performance_score() for each pilot, with the rubrics loaded in one query."""
+    rubrics = solution_service.latest_rubrics(db, [p.solution_id for p in pilots if p.solution_id])
+    return {
+        p.id: performance_score(
+            rubrics[p.solution_id].total if p.solution_id in rubrics else None,
+            p.milestones,
+            p.failed_milestones_count or 0,
+        )
+        for p in pilots
+    }
+
+
 def to_out(db: Session, pilots: Sequence[Pilot]) -> list[PilotOut]:
-    # Lead officer names and completion dates: one query each for the whole list.
+    # Lead officer names, completion dates, scores and procurements: one query each for the
+    # whole list, never one per pilot.
     poster_ids = {p.problem.posted_by for p in pilots}
     officers = dict(db.execute(select(User.id, User.name).where(User.id.in_(poster_ids))).all()) if pilots else {}
     completed = pilot_state_machine.completion_dates(db, [p.id for p in pilots])
+    perf = scores(db, pilots)
+    procurements = procurement_service.records_for(db, [p.id for p in pilots])
     out = []
     for p in pilots:
         profile, problem = p.startup, p.problem
+        record = procurements.get(p.id)
         out.append(PilotOut(
             id=str(p.id),
             code=p.code,
@@ -109,12 +167,15 @@ def to_out(db: Session, pilots: Sequence[Pilot]) -> list[PilotOut]:
             completion_date=to_date_str(completed.get(p.id)) or None,
             total_budget=float(p.budget_cap or 0),
             milestones=[_milestone_out(m, p.start_date) for m in p.milestones],
+            sanction_docket_id=str(record.id) if record else None,
+            sanction_order_ref=procurement_service.order_ref(record, p) if record else None,
+            performance_score=perf[p.id],
         ))
     return out
 
 
 def list_pilots(db: Session, user: User) -> list[PilotOut]:
-    stmt = _visible_to(_base_query(), user).order_by(Pilot.created_at.desc())
+    stmt = _visible_to(base_query(), user).order_by(Pilot.created_at.desc())
     return to_out(db, db.scalars(stmt).unique().all())
 
 
@@ -126,7 +187,7 @@ def get_pilot(db: Session, user: User, id_or_code: str) -> Pilot:
         condition = Pilot.code == id_or_code.upper()
     # populate_existing: re-read rows already in the session, so a response built right
     # after a change never shows stale milestones.
-    stmt = _visible_to(_base_query(), user).where(condition).execution_options(populate_existing=True)
+    stmt = _visible_to(base_query(), user).where(condition).execution_options(populate_existing=True)
     pilot = db.scalars(stmt).unique().one_or_none()
     if pilot is None:
         raise _not_found()
@@ -218,6 +279,10 @@ def update_status(db: Session, officer: User, pilot: Pilot, target_label: str) -
                 if m.due_date:
                     m.due_date += shift
     pilot_state_machine.transition(db, pilot, target, officer)
+    if target == "procured":
+        # Same transaction as the status change: the pilot is never Procured without its
+        # procurement record and proven solution, or the other way round.
+        procurement_service.record_procurement(db, pilot, scores(db, [pilot])[pilot.id])
     db.commit()
 
 
@@ -306,3 +371,15 @@ def disburse_tranche(db: Session, officer: User, pilot: Pilot, milestone_id: uui
         m.tranche_disbursed = True
         m.disbursed_at = _now()
         db.commit()
+
+
+def log_audit(db: Session, user: User, pilot: Pilot, req: AuditEntryIn) -> None:
+    db.add(AuditEntry(
+        pilot_id=pilot.id,
+        action=req.action,
+        actor_name=req.actor_name or user.name,
+        actor_role=req.actor_role or user.role,
+        hash=req.hash,
+        recorded_by=user.id,
+    ))
+    db.commit()

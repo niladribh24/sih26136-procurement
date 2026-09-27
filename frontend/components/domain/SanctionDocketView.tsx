@@ -1,45 +1,44 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  ShieldCheck,
-  Award,
-  CheckCircle2,
-  FileText,
-  Download,
-  Send,
-  Building2,
-  Printer,
-} from "lucide-react";
+import { CheckCircle2, AlertCircle, Send, Printer } from "lucide-react";
 import { Pilot } from "@/lib/types";
 import { api } from "@/lib/api";
+import { errorMessage } from "@/lib/http";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { AuditStamp } from "@/components/data/AuditStamp";
 
 export interface SanctionDocketViewProps {
   pilot: Pilot;
+  /** True for the lead officer: shows the "Record procurement" action once recommended. */
+  canRecord?: boolean;
+  onUpdated?: (pilot: Pilot) => void;
 }
 
-export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot }) => {
-  const [transmittedToGeM, setTransmittedToGeM] = useState(pilot.status === "Procured");
-  const [transmitting, setTransmitting] = useState(false);
+export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot, canRecord = false, onUpdated }) => {
+  const [recording, setRecording] = useState(false);
+  const [recordError, setRecordError] = useState("");
 
-  const sanctionOrderRef = `GOI/PROC/2026/${pilot.code.replace("PLT-2026-", "")}0491`;
+  const isProcured = pilot.status === "Procured";
+  // Real reference only once procured (backend: procurement_records); until then this is a draft.
+  const sanctionOrderRef = pilot.sanctionOrderRef ?? "Draft (not yet sanctioned)";
   const verifiedMilestonesCount = pilot.milestones.filter((m) => m.status === "verified").length;
   const totalMilestonesCount = pilot.milestones.length;
   const isAllVerified = totalMilestonesCount > 0 && verifiedMilestonesCount === totalMilestonesCount;
-  const totalBudgetFormatted = pilot.totalBudget ? `₹${pilot.totalBudget.toLocaleString("en-IN")}` : "₹28,50,000";
-  const budgetInLakhs = ((pilot.totalBudget || 2850000) / 100000).toFixed(2);
-  const auditHash = ((pilot.code || "") + (pilot.id || "samarth")).slice(-8);
+  const totalBudgetFormatted = `₹${pilot.totalBudget.toLocaleString("en-IN")}`;
+  const budgetInLakhs = (pilot.totalBudget / 100000).toFixed(2);
 
-  const handleTransmitGeM = async () => {
-    setTransmitting(true);
+  const handleRecordProcurement = async () => {
+    setRecording(true);
+    setRecordError("");
     try {
-      await api.updatePilotStatus(pilot.id, "Procured");
-      setTransmittedToGeM(true);
+      const updated = await api.updatePilotStatus(pilot.id, "Procured");
+      if (updated) onUpdated?.(updated);
+    } catch (err) {
+      setRecordError(errorMessage(err, "Could not record the procurement."));
     } finally {
-      setTransmitting(false);
+      setRecording(false);
     }
   };
 
@@ -70,7 +69,7 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
           </div>
           <div className="flex justify-between items-center pt-3 text-xs font-mono-data text-[var(--ink-muted)] border-t border-[var(--line)]">
             <span>Sanction Order Ref: <strong>{sanctionOrderRef}</strong></span>
-            <span>Date: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span>
+            <span>Printed: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span>
           </div>
         </div>
 
@@ -90,7 +89,11 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
                 <span className="font-mono-data font-bold text-[var(--positive)]">
                   {pilot.dpiitNumber}
                 </span>
-                <Badge variant="dpiit_verified">VERIFIED BY DPIIT</Badge>
+                {pilot.dpiitVerified ? (
+                  <Badge variant="dpiit_verified">DPIIT VERIFIED</Badge>
+                ) : (
+                  <Badge variant="dpiit_pending">DPIIT VERIFICATION PENDING</Badge>
+                )}
               </div>
             </div>
           </div>
@@ -127,10 +130,10 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
                 Performance Rating
               </span>
               <strong className="text-[var(--accent)] font-mono-data text-sm">
-                {pilot.performanceScore || 94.2} / 100
+                {pilot.performanceScore !== undefined ? `${pilot.performanceScore} / 100` : "Not scored yet"}
               </strong>
               <div className="text-[10px] text-[var(--ink-muted)] mt-0.5">
-                Audited Benchmark Index
+                Rubric, verification pass rate, on-time delivery
               </div>
             </div>
           </div>
@@ -195,7 +198,7 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
                   GFR 2017 Rule 149 & Rule 194 Special Exemption for Field-Validated Innovations:
                 </strong>
                 <p className="text-[11px] text-[var(--ink-secondary)] mt-0.5 leading-relaxed">
-                  The subject innovation has completed rigorous milestone validation under an authorized government pilot trial, satisfying statutory requirements for direct public procurement without requirement of prior tender notification.
+                  The subject innovation completed a government pilot trial whose milestones were each verified by an independent validator, the basis for direct procurement without a prior tender notification.
                 </p>
               </div>
             </div>
@@ -232,9 +235,11 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
               </span>
             </div>
             <div className="text-right text-xs font-mono-data space-y-1">
-              <div>Scope: Initial Deployment & Full Field Operations</div>
-              <div>Delivery Schedule: 60 Days from GeM Order</div>
-              <div>Warranty & Maintenance: 24 Months Comprehensive SLA</div>
+              <div>Scope: as validated in pilot {pilot.code}</div>
+              <div>Trial duration: {pilot.durationWeeks} weeks</div>
+              <div>
+                Milestones verified: {verifiedMilestonesCount} of {totalMilestonesCount}
+              </div>
             </div>
           </div>
         </div>
@@ -248,13 +253,17 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
             <div className="text-[11px] text-[var(--ink-muted)]">
               Competent Sanctioning Authority · {pilot.department}
             </div>
-            <AuditStamp
-              actorName={pilot.leadOfficerName.split("(")[0].trim()}
-              actorRole="Competent Sanctioning Officer"
-              timestamp={new Date().toISOString().replace("T", " ").slice(0, 16) + " IST"}
-              hash={auditHash}
-              className="mt-2"
-            />
+            {isProcured && pilot.sanctionDocketId ? (
+              <AuditStamp
+                actorName={pilot.leadOfficerName}
+                actorRole="Sanctioning Officer"
+                timestamp={sanctionOrderRef}
+                hash={pilot.sanctionDocketId.slice(0, 8)}
+                className="mt-2"
+              />
+            ) : (
+              <div className="mt-2 text-[11px] font-mono-data text-[var(--ink-muted)]">Unsigned draft</div>
+            )}
           </div>
 
           <div className="text-right">
@@ -262,47 +271,50 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot })
               {pilot.independentValidatorName}
             </div>
             <div className="text-[11px] text-[var(--ink-muted)]">
-              Independent Technical Evaluator · IIT Delhi
+              Independent Technical Validator
             </div>
             <div className="inline-block mt-2 px-2 py-0.5 rounded bg-[var(--positive-soft)] text-[var(--positive)] border border-[var(--positive)]/30 font-mono-data text-[11px]">
-              [ Digitally Verified & Sealed ]
+              {verifiedMilestonesCount} of {totalMilestonesCount} milestones verified
             </div>
           </div>
         </div>
       </div>
 
-      {/* Action Bar (Print / PDF / GeM Simulation) */}
-      <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs print:hidden">
-        <div className="flex items-center gap-2 text-xs">
+      {/* Action Bar (Print / record procurement) */}
+      <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-3 shadow-2xs print:hidden">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <Button variant="secondary" size="md" onClick={handlePrint}>
             <Printer className="w-4 h-4" />
-            <span>Print Official Dossier</span>
+            <span>Print / Save as PDF</span>
           </Button>
 
-          <Button variant="secondary" size="md" onClick={handlePrint}>
-            <Download className="w-4 h-4" />
-            <span>Export Sanction PDF</span>
-          </Button>
+          <div>
+            {isProcured ? (
+              <div className="flex items-center gap-2 text-xs font-bold text-[var(--positive)] font-mono-data">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Procurement recorded · {sanctionOrderRef}</span>
+              </div>
+            ) : pilot.status === "Recommended for procurement" && canRecord ? (
+              <Button variant="primary" size="md" onClick={handleRecordProcurement} disabled={recording}>
+                <Send className="w-4 h-4" />
+                <span>{recording ? "Recording..." : "Record Procurement Sanction →"}</span>
+              </Button>
+            ) : (
+              <span className="text-xs font-mono-data text-[var(--ink-muted)]">
+                {pilot.status === "Recommended for procurement"
+                  ? "Awaiting the lead officer to record the sanction"
+                  : "Recommend the pilot for procurement from the pilot tracker first"}
+              </span>
+            )}
+          </div>
         </div>
 
-        <div>
-          {transmittedToGeM ? (
-            <div className="flex items-center gap-2 text-xs font-bold text-[var(--positive)] font-mono-data">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>TRANSMITTED TO GeM PROCUREMENT SIMULATOR</span>
-            </div>
-          ) : (
-            <Button
-              variant="primary"
-              size="md"
-              onClick={handleTransmitGeM}
-              disabled={transmitting}
-            >
-              <Send className="w-4 h-4" />
-              <span>{transmitting ? "Transmitting..." : "Push to GeM Simulation Gateway →"}</span>
-            </Button>
-          )}
-        </div>
+        {recordError && (
+          <div className="p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/30 rounded-[6px] text-xs text-[var(--danger)] flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{recordError}</span>
+          </div>
+        )}
       </div>
     </div>
   );

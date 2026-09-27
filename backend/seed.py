@@ -8,7 +8,8 @@
 Everything goes through the same service code as real requests: signup, profile update,
 PDF upload (so ML /extract tags the startups), problem creation, solution submission (so
 /summarize and the eligibility engine run), one /rank per problem, then one active pilot
-(evaluator rubric, officer approval, a verified and a submitted milestone). If the ML service
+(evaluator rubric, officer approval, a verified and a submitted milestone), and one procured
+pilot that is now a proven solution with a pending replication request. If the ML service
 is down, everything is still seeded and the ML fields stay pending; run `python retry_ml.py`
 once it's up to fill them in.
 
@@ -33,13 +34,33 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.models import EligibilityCheck, Pilot, Problem, SolutionAbstract, StartupDocument, StartupProfile, User
+from app.models import (
+    EligibilityCheck,
+    Pilot,
+    ProcurementRecord,
+    Problem,
+    ProvenSolution,
+    ReplicationRequest,
+    SolutionAbstract,
+    StartupDocument,
+    StartupProfile,
+    User,
+)
 from app.schemas.auth import SignupRequest
 from app.schemas.pilot import DeliverableSubmit, MilestoneVerify, PilotCreate
 from app.schemas.problem import ProblemCreate
+from app.schemas.scale import ReplicationCreate
 from app.schemas.solution import RubricIn, SolutionSubmit
 from app.schemas.startup import StartupProfileUpdate
-from app.services import auth_service, ml_sync, pilot_service, problem_service, solution_service, startup_service
+from app.services import (
+    auth_service,
+    ml_sync,
+    pilot_service,
+    problem_service,
+    scale_service,
+    solution_service,
+    startup_service,
+)
 from app.services.ml_client import MLUnavailable
 from app.services.uploads import delete_upload
 
@@ -654,6 +675,48 @@ PILOT = {
 }
 
 
+# The procured pilot: BhoomiSense's irrigation sensors on P2. Milestone 2 fails its first
+# verification and passes on resubmission, so the performance score isn't a flat 100. Once
+# procured, the urban officer asks to replicate it (left pending for the demo).
+PROCURED_PILOT = {
+    "problem": "P2",
+    "startup": "bhoomisense",
+    "validator": "Prof. K. Rao (Aerospace, IIT Delhi)",
+    "rubric": {"technicalMerit": 26, "costRealism": 17, "teamCapability": 17, "timelineViability": 24,
+               "comments": "Proven at scale in another canal command; realistic rabi-season plan."},
+    "milestones": [
+        {"sequence": 1, "title": "Sensor installation and farmer onboarding",
+         "description": "350 soil moisture probes and 5 LoRaWAN gateways installed; farmers enrolled.",
+         "targetKPI": "300+ probes reporting every 30 minutes",
+         "deliverableDueWeek": 6, "tranchePercentage": 30},
+        {"sequence": 2, "title": "Rabi season irrigation advisories",
+         "description": "Canal-rotation-aware advisories by SMS and voice for the full rabi season.",
+         "targetKPI": "Advisories to every enrolled farmer before each rotation",
+         "deliverableDueWeek": 18, "tranchePercentage": 40},
+        {"sequence": 3, "title": "Water savings and yield assessment",
+         "description": "Irrigation water applied and yield compared against the previous rabi season.",
+         "targetKPI": ">= 20% less irrigation water with no yield loss",
+         "deliverableDueWeek": 24, "tranchePercentage": 30},
+    ],
+    "deliverables": {
+        1: ("342 probes reporting; 1,180 farmers enrolled", "/deliverables/bhoomisense-m1-installation.pdf"),
+        2: ("Advisories sent before 11 of 12 rotations", "/deliverables/bhoomisense-m2-advisories.pdf"),
+        3: ("23% less irrigation water; yield within 1% of last season", "/deliverables/bhoomisense-m3-assessment.pdf"),
+    },
+    "m2_resubmission": ("Advisories sent before all 12 rotations after the gateway fix",
+                        "/deliverables/bhoomisense-m2-advisories-v2.pdf"),
+    "replication": {
+        "officer": "urban",
+        "requestingOfficerName": "Vikram Rao",
+        "requestingOfficerEmail": f"officer.urban@{EMAIL_DOMAIN}",
+        "targetDeploymentSite": "Nagpur peri-urban wastewater irrigation zone",
+        "targetQuantity": 120,
+        "targetBudget": 1_600_000,
+        "deploymentTimelineWeeks": 16,
+    },
+}
+
+
 def _latin1(text: str) -> str:
     # The built-in Helvetica font only covers Latin-1; swap the few characters we use.
     text = text.replace("₹", "Rs ").replace("–", "-").replace("—", "-").replace("’", "'")
@@ -821,6 +884,7 @@ def seed(db: Session) -> dict[str, Problem]:
             _log(f"    {problem.code}: ML pending")
 
     seed_pilot(db, gov, profiles, problems)
+    seed_procured_pilot(db, gov, profiles, problems)
     return problems
 
 
@@ -861,6 +925,57 @@ def seed_pilot(db: Session, gov: dict[str, User], profiles: dict[str, StartupPro
     _log(f"    {pilot.code}: Active; milestone 1 verified and paid, milestone 2 awaiting verification")
 
 
+def seed_procured_pilot(db: Session, gov: dict[str, User], profiles: dict[str, StartupProfile],
+                        problems: dict[str, Problem]) -> None:
+    """A pilot taken all the way to Procured, plus a pending replication request for it."""
+    spec = PROCURED_PILOT
+    problem = problems[spec["problem"]]
+    officer = db.get(User, problem.posted_by)
+    solution = db.scalar(select(SolutionAbstract).where(
+        SolutionAbstract.problem_id == problem.id, SolutionAbstract.startup_id == profiles[spec["startup"]].id
+    ))
+    _log(f"Creating a procured pilot for {problem.code} <- {STARTUPS_BY_KEY[spec['startup']].org_name}...")
+    solution_service.save_rubric(db, gov["evaluator"], solution, RubricIn.model_validate(spec["rubric"]))
+    try:
+        pilot_id = str(pilot_service.create_pilot(db, officer, PilotCreate.model_validate({
+            "solutionId": str(solution.id),
+            "independentValidatorName": spec["validator"],
+            "durationWeeks": solution.proposed_duration_weeks,
+            "totalBudget": solution.proposed_cost,
+            "milestones": spec["milestones"],
+        })))
+    except HTTPException as e:
+        _log(f"    skipped: {e.detail}")
+        return
+
+    def fresh() -> Pilot:
+        return pilot_service.get_pilot(db, officer, pilot_id)
+
+    def verify(milestone_id, outcome: str, remarks: str) -> None:
+        pilot_service.verify_milestone(db, officer, fresh(), milestone_id, MilestoneVerify(
+            verified_by=spec["validator"], remarks=remarks, status=outcome,
+        ))
+
+    pilot_service.update_status(db, officer, fresh(), "Active")
+    by_seq = {m.sequence: m.id for m in fresh().milestones}
+    for seq, (kpi, url) in spec["deliverables"].items():
+        pilot_service.submit_deliverable(db, fresh(), by_seq[seq], DeliverableSubmit(achieved_kpi=kpi, file_url=url))
+    verify(by_seq[1], "verified", "Probe telemetry and enrolment register checked on site.")
+    verify(by_seq[2], "failed", "One rotation was missed after a gateway outage; resubmit with the fix.")
+    kpi, url = spec["m2_resubmission"]
+    pilot_service.submit_deliverable(db, fresh(), by_seq[2], DeliverableSubmit(achieved_kpi=kpi, file_url=url))
+    verify(by_seq[2], "verified", "Gateway redundancy confirmed; all rotations covered.")
+    verify(by_seq[3], "verified", "Water meter readings and crop-cutting results match the report.")  # -> Completed
+    pilot_service.update_status(db, officer, fresh(), "Recommended for procurement")
+    pilot_service.update_status(db, officer, fresh(), "Procured")
+
+    rep = spec["replication"]
+    scale_service.create_replication(db, gov[rep["officer"]], ReplicationCreate.model_validate(
+        {k: v for k, v in rep.items() if k != "officer"} | {"pilotId": pilot_id}
+    ))
+    _log(f"    {fresh().code}: Procured (proven solution); replication request from {rep['requestingOfficerName']} pending")
+
+
 def clear(db: Session) -> dict[str, int]:
     """Delete every seeded user, their problems and everything hanging off them, then their
     uploaded files. Returns what was deleted."""
@@ -873,23 +988,40 @@ def clear(db: Session) -> dict[str, int]:
     files = [p for p in db.scalars(select(StartupDocument.file_path).where(StartupDocument.startup_id.in_(profile_ids))) if p]
     files += [p for p in db.scalars(select(SolutionAbstract.file_path).where(solutions)) if p]
     pilot_ids = select(Pilot.id).where(or_(Pilot.problem_id.in_(problem_ids), Pilot.startup_id.in_(profile_ids)))
+    procurement_ids = select(ProcurementRecord.id).where(ProcurementRecord.pilot_id.in_(pilot_ids))
+    proven_ids = select(ProvenSolution.id).where(ProvenSolution.procurement_id.in_(procurement_ids))
+    replications = or_(
+        ReplicationRequest.proven_solution_id.in_(proven_ids),
+        ReplicationRequest.pilot_id.in_(pilot_ids),
+        ReplicationRequest.requesting_dept_id.in_(user_ids),
+    )
     counts = {
         "users": len(db.scalars(user_ids).all()),
         "problems": len(db.scalars(problem_ids).all()),
         "pilots": len(db.scalars(pilot_ids).all()),
+        "proven_solutions": len(db.scalars(proven_ids).all()),
+        "replications": len(db.scalars(select(ReplicationRequest.id).where(replications)).all()),
         "solutions": len(db.scalars(select(SolutionAbstract.id).where(solutions)).all()),
         "files": len(files),
     }
 
-    # Pilots first: pilots.problem_id / startup_id / solution_id have no ON DELETE CASCADE (a
+    # Scale and procurement rows first, children before parents: replication requests point at
+    # pilots and users, proven solutions at procurement records, procurement records at pilots,
+    # and none of those foreign keys cascade.
+    # Then pilots: pilots.problem_id / startup_id / solution_id have no ON DELETE CASCADE (a
     # pilot is a spending record; it shouldn't vanish because a problem was deleted), so they
-    # would block the deletes below. Deleting a pilot cascades to its milestones and history.
+    # would block the deletes below. Deleting a pilot cascades to its milestones, history and
+    # audit entries.
     # Then problems: problems.posted_by has no ON DELETE CASCADE either, so deleting an officer
     # who still has problems would fail. Deleting a problem cascades (in Postgres, via ON DELETE
     # CASCADE) to its solutions, their eligibility checks and evaluations. Deleting a user
     # then cascades to the startup profile, its documents and its solutions.
     # synchronize_session=False: these are plain SQL DELETEs; we don't reuse any loaded objects.
     try:
+        plain = {"synchronize_session": False}
+        db.execute(delete(ReplicationRequest).where(replications).execution_options(**plain))
+        db.execute(delete(ProvenSolution).where(ProvenSolution.id.in_(proven_ids)).execution_options(**plain))
+        db.execute(delete(ProcurementRecord).where(ProcurementRecord.id.in_(procurement_ids)).execution_options(**plain))
         db.execute(delete(Pilot).where(Pilot.id.in_(pilot_ids)).execution_options(synchronize_session=False))
         db.execute(delete(Problem).where(Problem.id.in_(problem_ids)).execution_options(synchronize_session=False))
         db.execute(delete(User).where(User.id.in_(user_ids)).execution_options(synchronize_session=False))
@@ -948,6 +1080,10 @@ def print_report(db: Session) -> None:
     for pilot in db.scalars(select(Pilot).where(Pilot.problem_id.in_([p.id for p in problems]))):
         done = sum(m.status == "verified" for m in pilot.milestones)
         _log(f"\nPilot {pilot.code}: {pilot.status}, {done}/{len(pilot.milestones)} milestones verified")
+    for r in db.scalars(select(ReplicationRequest).where(
+        ReplicationRequest.pilot_id.in_(select(Pilot.id).where(Pilot.problem_id.in_([p.id for p in problems])))
+    )):
+        _log(f"Replication request to {r.target_deployment_site}: {r.status}")
     if pending_ml:
         _log("\nSome ML results are pending. Start the ML service, then run: python retry_ml.py")
 

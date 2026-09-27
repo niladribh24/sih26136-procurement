@@ -88,7 +88,7 @@ export default function HomePage() {
         </h1>
 
         <p className="text-base sm:text-lg text-[var(--ink-secondary)] max-w-2xl mx-auto leading-relaxed mb-8">
-          A compliant, tamper-proof four-stage lifecycle transitioning DPIIT-recognized
+          A compliant, auditable four-stage lifecycle transitioning DPIIT-recognized
           startups from competitive problem statements to verified pilot trials, GFR 194
           direct sanction orders, and national scale replication.
         </p>

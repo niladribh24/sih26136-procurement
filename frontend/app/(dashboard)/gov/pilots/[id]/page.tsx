@@ -18,6 +18,7 @@ import { api } from "@/lib/api";
 import { getSession, subscribeSession } from "@/lib/auth";
 import { errorMessage } from "@/lib/http";
 import { Pilot, Milestone } from "@/lib/types";
+import { directSanctionEligible, lifecycleStage } from "@/lib/pilotStateMachine";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -98,6 +99,8 @@ export default function GovernmentPilotTrackerPage() {
   // actions that can't apply to this role or this pilot status.
   const isOfficer = session?.role === "govt_officer";
   const canVerify = pilot.status === "Active" && (isOfficer || session?.role === "evaluator");
+  const verifiedCount = pilot.milestones.filter((m) => m.status === "verified").length;
+  const sanctionEligible = directSanctionEligible(pilot.status);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -113,7 +116,7 @@ export default function GovernmentPilotTrackerPage() {
         code={pilot.code}
         title={`${pilot.startupName} — Field Pilot Tracker`}
         subtitle={`${pilot.department} · Sanction: ₹${(pilot.totalBudget / 100000).toFixed(1)}L · Duration: ${pilot.durationWeeks} Weeks`}
-        badge={<Badge variant="highlight">Stage 2: Milestone Verification</Badge>}
+        badge={<Badge variant="highlight">{lifecycleStage(pilot.status).label}</Badge>}
         actions={
           (allMilestonesVerified && pilot.status === "Completed" && isOfficer) || isRecommended ? (
             <Button
@@ -124,7 +127,7 @@ export default function GovernmentPilotTrackerPage() {
               <Award className="w-4 h-4 text-[var(--highlight)]" />
               <span>
                 {isRecommended
-                  ? "View Generated Procurement Docket →"
+                  ? "View Sanction Docket →"
                   : "Recommend for Direct Sanction (Stage 3) →"}
               </span>
             </Button>
@@ -132,6 +135,8 @@ export default function GovernmentPilotTrackerPage() {
             <div className="text-xs font-mono-data text-[var(--ink-muted)]">
               {pilot.status === "Completed"
                 ? "Awaiting the lead officer's sanction recommendation"
+                : pilot.status === "Failed"
+                ? "Pilot failed: not eligible for procurement"
                 : "All milestones must be verified to unlock procurement"}
             </div>
           )
@@ -160,11 +165,15 @@ export default function GovernmentPilotTrackerPage() {
           <span className="text-[11px] font-mono-data text-[var(--ink-muted)] uppercase">
             Trial Performance Rating
           </span>
-          <div className="text-xl font-bold font-mono-data text-[var(--positive)]">
-            {pilot.performanceScore || 94.2} / 100
-          </div>
+          {pilot.performanceScore !== undefined ? (
+            <div className="text-xl font-bold font-mono-data text-[var(--positive)]">
+              {pilot.performanceScore} / 100
+            </div>
+          ) : (
+            <div className="text-sm font-semibold text-[var(--ink-muted)] pt-1">Not scored yet</div>
+          )}
           <span className="text-[10px] text-[var(--ink-muted)]">
-            Independent benchmark index
+            Rubric 40% · verification pass rate 40% · on-time delivery 20%
           </span>
         </div>
 
@@ -188,14 +197,28 @@ export default function GovernmentPilotTrackerPage() {
 
         <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-1">
           <span className="text-[11px] font-mono-data text-[var(--ink-muted)] uppercase">
-            GFR Rule 149 Eligibility
+            Direct Sanction Eligibility
           </span>
-          <div className="text-sm font-bold text-[var(--accent)] flex items-center gap-1.5 pt-1">
-            <ShieldCheck className="w-4 h-4 text-[var(--positive)]" />
-            <span>Eligible for Direct Sanction</span>
-          </div>
+          {sanctionEligible ? (
+            <div className="text-sm font-bold text-[var(--accent)] flex items-center gap-1.5 pt-1">
+              <ShieldCheck className="w-4 h-4 text-[var(--positive)]" />
+              <span>Eligible for Direct Sanction</span>
+            </div>
+          ) : pilot.status === "Failed" ? (
+            <div className="text-sm font-bold text-[var(--danger)] flex items-center gap-1.5 pt-1">
+              <AlertCircle className="w-4 h-4" />
+              <span>Not eligible: pilot failed</span>
+            </div>
+          ) : (
+            <div className="text-sm font-bold text-[var(--ink-secondary)] flex items-center gap-1.5 pt-1">
+              <AlertCircle className="w-4 h-4 text-[var(--warning)]" />
+              <span>Not yet eligible</span>
+            </div>
+          )}
           <span className="text-[10px] text-[var(--ink-muted)]">
-            Validated innovation procurement
+            {sanctionEligible
+              ? "Every milestone independently verified"
+              : `${verifiedCount} of ${pilot.milestones.length} milestones verified; the trial must complete first`}
           </span>
         </div>
       </div>

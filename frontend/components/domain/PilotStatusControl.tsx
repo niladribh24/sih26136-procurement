@@ -26,8 +26,8 @@ const EXPLAIN: Partial<Record<PilotStatus, string>> = {
   Active: "Trial running. The pilot completes automatically when every milestone is verified.",
   Completed: "All milestones verified. Recommend it for direct sanction to move to procurement.",
   Failed: "Terminated as failed. This is a final status.",
-  "Recommended for procurement": "Recommended for direct sanction under GFR Rule 194.",
-  Procured: "Sanction order transmitted. This is a final status.",
+  "Recommended for procurement": "Recommended for direct sanction. Record the procurement from the sanction docket.",
+  Procured: "Procurement recorded; listed as a proven solution for other departments. This is a final status.",
 };
 
 export interface PilotStatusControlProps {

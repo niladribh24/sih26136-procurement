@@ -86,3 +86,16 @@ class PilotStatusHistory(Base):
     to_status: Mapped[str] = mapped_column(pilot_status)
     changed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     changed_at: Mapped[datetime | None] = timestamp_now()
+
+
+class AuditEntry(Base):
+    __tablename__ = "audit_entries"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    pilot_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("pilots.id", ondelete="CASCADE"))
+    action: Mapped[str] = mapped_column(Text)
+    actor_name: Mapped[str | None] = mapped_column(Text)
+    actor_role: Mapped[str | None] = mapped_column(Text)
+    hash: Mapped[str | None] = mapped_column(Text)
+    recorded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    created_at: Mapped[datetime | None] = timestamp_now()

@@ -23,3 +23,21 @@ export function nextStatuses(current: PilotStatus): PilotStatus[] {
 export function canTransition(current: PilotStatus, target: PilotStatus): boolean {
   return nextStatuses(current).includes(target);
 }
+
+/** Which of the four lifecycle stages (Identify → Pilot → Procure → Scale) a pilot is in. */
+export function lifecycleStage(status: PilotStatus): { number: 2 | 3 | 4; label: string } {
+  switch (status) {
+    case "Completed":
+    case "Recommended for procurement":
+      return { number: 3, label: "Stage 3: Procure" };
+    case "Procured":
+      return { number: 4, label: "Stage 4: Scale" };
+    default:
+      return { number: 2, label: "Stage 2: Pilot" };
+  }
+}
+
+/** Direct sanction needs a completed trial: every milestone independently verified. */
+export function directSanctionEligible(status: PilotStatus): boolean {
+  return status === "Completed" || status === "Recommended for procurement" || status === "Procured";
+}

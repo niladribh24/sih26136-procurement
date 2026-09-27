@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Check, Clock } from "lucide-react";
+import { Check, Clock, X } from "lucide-react";
 import { PilotStatus } from "@/lib/types";
 
 export interface MilestoneStepperProps {
@@ -19,42 +19,50 @@ interface StepDef {
 const STEPS: StepDef[] = [
   {
     number: 1,
-    label: "Field Sandbox Trial",
-    description: "Milestone execution & deliverable tests",
+    label: "Pilot Approval",
+    description: "Proposal approved; milestones & tranches configured",
   },
   {
     number: 2,
-    label: "Independent Verification",
-    description: "Evaluator audit & criteria compliance",
+    label: "Field Trial & Verification",
+    description: "Deliverables verified by the independent validator",
   },
   {
     number: 3,
     label: "Sanction Recommendation",
-    description: "Department lead officer sign-off",
+    description: "Lead officer recommends direct procurement",
   },
   {
     number: 4,
     label: "Direct Procurement",
-    description: "GFR 194 sanction memorandum",
+    description: "Procurement recorded under GFR Rule 194",
   },
 ];
+
+// The step each pilot status is currently on (0-based). Procured has finished all four.
+const CURRENT_STEP: Record<PilotStatus, number> = {
+  Proposed: 0,
+  "Under review": 0,
+  Approved: 0,
+  Active: 1,
+  Failed: 1,
+  Completed: 2,
+  "Recommended for procurement": 3,
+  Procured: 4,
+};
+
+type StepState = "done" | "current" | "failed" | "upcoming";
 
 export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
   currentStatus,
   leadOfficer,
   independentValidator,
 }) => {
-  // Determine current active step index (0-based: 0 to 3)
-  let activeIndex = 0;
-  if (currentStatus === "Completed") {
-    activeIndex = 1;
-  } else if (currentStatus === "Recommended for procurement") {
-    activeIndex = 2;
-  } else if (currentStatus === "Procured") {
-    activeIndex = 3;
-  }
+  const activeIndex = CURRENT_STEP[currentStatus] ?? 0;
+  const isFailed = currentStatus === "Failed";
 
-  const isProcured = currentStatus === "Procured";
+  const stateOf = (idx: number): StepState =>
+    idx < activeIndex ? "done" : idx === activeIndex ? (isFailed ? "failed" : "current") : "upcoming";
 
   return (
     <div className="p-5 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-4 shadow-2xs">
@@ -64,7 +72,8 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
             GFR Pilot Lifecycle Progression
           </span>
           <h3 className="text-sm font-bold text-[var(--ink)] font-editorial">
-            Current Stage: <span className="text-[var(--accent)] capitalize">{currentStatus}</span>
+            Current Status:{" "}
+            <span className={isFailed ? "text-[var(--danger)]" : "text-[var(--accent)]"}>{currentStatus}</span>
           </h3>
         </div>
 
@@ -87,16 +96,17 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
       {/* 4-Step Responsive Stepper Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
         {STEPS.map((step, idx) => {
-          const isPassed = isProcured ? true : idx < activeIndex;
-          const isCurrent = isProcured ? idx === 3 : idx === activeIndex;
+          const state = stateOf(idx);
 
           return (
             <div
               key={step.number}
-              className={`p-3 rounded-[6px] border transition-all flex flex-col justify-between gap-2 ${
-                isCurrent
+              className={`p-3 rounded-[6px] border transition-colors flex flex-col justify-between gap-2 ${
+                state === "current"
                   ? "bg-[var(--surface)] border-[var(--accent)] ring-1 ring-[var(--accent)]/20 shadow-xs"
-                  : isPassed
+                  : state === "failed"
+                  ? "bg-[var(--danger-soft)] border-[var(--danger)]/40"
+                  : state === "done"
                   ? "bg-[var(--positive-soft)]/40 border-[var(--positive)]/30 text-[var(--ink)]"
                   : "bg-[var(--surface-subtle)] border-[var(--line)] text-[var(--ink-muted)] opacity-75"
               }`}
@@ -104,23 +114,33 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
               <div className="flex items-center justify-between gap-2">
                 <span
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono-data font-bold ${
-                    isPassed
+                    state === "done"
                       ? "bg-[var(--positive)] text-white"
-                      : isCurrent
+                      : state === "current"
                       ? "bg-[var(--accent)] text-white"
+                      : state === "failed"
+                      ? "bg-[var(--danger)] text-white"
                       : "bg-[var(--surface-raised)] border border-[var(--line)] text-[var(--ink-muted)]"
                   }`}
                 >
-                  {isPassed ? <Check className="w-3.5 h-3.5 stroke-[2.5]" /> : step.number}
+                  {state === "done" ? (
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                  ) : state === "failed" ? (
+                    <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                  ) : (
+                    step.number
+                  )}
                 </span>
 
                 <span className="text-[10px] font-mono-data uppercase font-semibold">
-                  {isPassed ? (
+                  {state === "done" ? (
                     <span className="text-[var(--positive)]">Completed</span>
-                  ) : isCurrent ? (
+                  ) : state === "current" ? (
                     <span className="text-[var(--accent)] flex items-center gap-1">
-                      <Clock className="w-3 h-3 animate-pulse" /> Active
+                      <Clock className="w-3 h-3" /> In progress
                     </span>
+                  ) : state === "failed" ? (
+                    <span className="text-[var(--danger)]">Failed</span>
                   ) : (
                     <span className="text-[var(--ink-muted)]">Upcoming</span>
                   )}
@@ -130,7 +150,7 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
               <div>
                 <div
                   className={`text-xs font-bold leading-snug ${
-                    isCurrent ? "text-[var(--ink)]" : isPassed ? "text-[var(--ink)]" : "text-[var(--ink-muted)]"
+                    state === "upcoming" ? "text-[var(--ink-muted)]" : "text-[var(--ink)]"
                   }`}
                 >
                   {step.label}

@@ -221,6 +221,19 @@ CREATE TABLE pilot_status_history (
     changed_at      TIMESTAMPTZ DEFAULT now()
 );
 
+-- Backs api.ts logAuditEntry(): free-form audit notes a government user records against a
+-- pilot. Status changes don't go here; they're in pilot_status_history.
+CREATE TABLE audit_entries (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pilot_id        UUID NOT NULL REFERENCES pilots(id) ON DELETE CASCADE,
+    action          TEXT NOT NULL,
+    actor_name      TEXT,                 -- as displayed in the UI (may differ from the account's name)
+    actor_role      TEXT,
+    hash            TEXT,
+    recorded_by     UUID REFERENCES users(id),  -- the account that made the call
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
 -- ---------- Cross-cutting: IP & Data Governance ----------
 -- Table retained; no endpoints planned yet (low priority — frontend doesn't call anything for this).
 CREATE TABLE ip_agreements (
@@ -256,13 +269,14 @@ CREATE TABLE validations (
 );
 
 -- ---------- Module 9: Procurement Bridge ----------
--- Table retained; no endpoints planned yet (low priority — frontend's Sanction Docket
--- screen currently reads sanctionDocketId/sanctionOrderRef straight off Pilot).
+-- Written when a pilot moves to 'procured' (app/services/procurement_service.py), in the
+-- same transaction as the status change and its proven_solutions row. The API exposes it
+-- as Pilot.sanctionDocketId (this id) and Pilot.sanctionOrderRef (derived at read time).
 CREATE TABLE procurement_records (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    pilot_id        UUID REFERENCES pilots(id),
-    procurement_package_url TEXT,          -- generated PDF/JSON
-    compliance_checklist JSONB,            -- { "eligibility_verified": true, "pilot_kpis_met": true, ... }
+    pilot_id        UUID UNIQUE REFERENCES pilots(id),  -- one procurement per pilot; UNIQUE also indexes it
+    procurement_package_url TEXT,          -- generated PDF/JSON (nothing generates one yet)
+    compliance_checklist JSONB,            -- snapshot at procurement: eligibility, milestones, rubric, performance score
     status          TEXT DEFAULT 'pending', -- pending / issued
     procured_at     TIMESTAMPTZ
 );
@@ -270,7 +284,7 @@ CREATE TABLE procurement_records (
 -- ---------- Module 10: Scale & Replication ----------
 CREATE TABLE proven_solutions (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    procurement_id  UUID REFERENCES procurement_records(id),
+    procurement_id  UUID UNIQUE REFERENCES procurement_records(id),  -- one proven solution per procurement
     replicable      BOOLEAN DEFAULT TRUE,
     replication_requests_count INT DEFAULT 0
 );
@@ -313,3 +327,5 @@ CREATE INDEX ON pilot_status_history (pilot_id);
 CREATE INDEX ON evaluations (solution_id);
 CREATE INDEX ON eligibility_checks (solution_id);
 CREATE INDEX ON replication_requests (proven_solution_id);
+CREATE INDEX ON replication_requests (pilot_id);
+CREATE INDEX ON audit_entries (pilot_id);

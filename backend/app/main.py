@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import engine
-from app.routers import auth, pilots, problems, solutions, startups
+from app.routers import auth, pilots, problems, scale, solutions, startups
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ app.include_router(startups.router)
 app.include_router(problems.router)
 app.include_router(solutions.router)
 app.include_router(pilots.router)
+app.include_router(scale.router)
 
 
 @app.get("/health")

@@ -61,8 +61,11 @@ class PilotOut(CamelModel):
     completion_date: str | None = None
     total_budget: float
     milestones: list[MilestoneOut]
-    # sanctionDocketId / sanctionOrderRef / performanceScore: no data source yet (procurement is
-    # deferred), so they're always omitted.
+    # Only once the pilot is Procured: the procurement_records id and a reference derived from it.
+    sanction_docket_id: str | None = None
+    sanction_order_ref: str | None = None
+    # 0-100, see pilot_service.performance_score(); omitted until a milestone is verified.
+    performance_score: float | None = None
 
 
 class MilestoneCreate(CamelModel):
@@ -123,3 +126,12 @@ class MilestoneVerify(CamelModel):
     remarks: str = ""
     status: Literal["verified", "failed"] = "verified"
     verification_report_url: str | None = None
+
+
+class AuditEntryIn(CamelModel):
+    """POST /api/pilots/:id/audit — api.ts logAuditEntry() (pilotId comes from the URL)."""
+
+    action: str = Field(min_length=1)
+    actor_name: str = ""
+    actor_role: str = ""
+    hash: str | None = None

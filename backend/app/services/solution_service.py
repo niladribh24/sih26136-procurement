@@ -46,7 +46,7 @@ def _visible_to(stmt: Select, user: User) -> Select:
     return stmt
 
 
-def _latest_rubrics(db: Session, solution_ids: list[uuid.UUID]) -> dict[uuid.UUID, RubricScore]:
+def latest_rubrics(db: Session, solution_ids: list[uuid.UUID]) -> dict[uuid.UUID, RubricScore]:
     """The most recent evaluation per solution — one query for the whole list."""
     rubrics: dict[uuid.UUID, RubricScore] = {}
     if not solution_ids:
@@ -96,7 +96,7 @@ def _out(s: SolutionAbstract, rubric: RubricScore | None) -> SolutionOut:
 
 
 def to_out(db: Session, solutions: Sequence[SolutionAbstract]) -> list[SolutionOut]:
-    rubrics = _latest_rubrics(db, [s.id for s in solutions])
+    rubrics = latest_rubrics(db, [s.id for s in solutions])
     return [_out(s, rubrics.get(s.id)) for s in solutions]
 
 
@@ -199,7 +199,7 @@ def update_status(db: Session, user: User, solution: SolutionAbstract, new_statu
 
 def save_rubric(db: Session, user: User, solution: SolutionAbstract, req: RubricIn) -> None:
     """Each save is a new evaluations row (kept as history); the newest one is what
-    Solution.rubricScore shows (_latest_rubrics)."""
+    Solution.rubricScore shows (latest_rubrics)."""
     check_can_manage(db, user, solution.problem_id)
     db.add(Evaluation(
         solution_id=solution.id,

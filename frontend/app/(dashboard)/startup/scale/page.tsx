@@ -13,7 +13,8 @@ export default function StartupScaleShowcasePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("All");
 
-  const domains = ["All", "Agriculture", "Defense", "Forestry", "Healthcare", "GovTech"];
+  // Problem["domain"] values: a proven solution's domain is its problem's.
+  const domains = ["All", "AgriTech", "CleanTech", "Defence", "DroneTech", "GovTech", "HealthTech"];
 
   useEffect(() => {
     api.getScaleSolutions().then(setScaleItems);
@@ -106,7 +107,7 @@ export default function StartupScaleShowcasePage() {
                     </span>
                     <Badge variant="positive">
                       <ShieldCheck className="w-3 h-3 mr-1" />
-                      SCALE CERTIFIED
+                      PROCURED · PROVEN
                     </Badge>
                     {isOwnVenture && (
                       <span className="px-2 py-0.5 rounded bg-[var(--accent)] text-white text-[10px] font-mono-data font-bold uppercase">
@@ -132,7 +133,7 @@ export default function StartupScaleShowcasePage() {
                     Performance Score: {item.performanceScore}/100
                   </span>
                   <div className="text-[11px] font-mono-data text-[var(--ink-muted)]">
-                    Units Deployed: {item.deployedUnits} ({item.budgetPerUnit}/unit)
+                    Deployments: {item.deployedUnits} ({item.budgetPerUnit} per deployment)
                   </div>
                 </div>
               </div>
@@ -156,7 +157,9 @@ export default function StartupScaleShowcasePage() {
 
         {filteredItems.length === 0 && (
           <div className="p-12 text-center bg-[var(--surface)] border border-[var(--line)] rounded-[8px] text-xs text-[var(--ink-muted)]">
-            No validated scale solutions match your search or filter parameters.
+            {scaleItems.length === 0
+              ? "No proven solutions yet. A pilot becomes one when the department records its procurement."
+              : "No proven solutions match your search or filter parameters."}
           </div>
         )}
       </div>

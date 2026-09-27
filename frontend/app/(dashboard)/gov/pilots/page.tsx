@@ -88,7 +88,8 @@ export default function GovernmentPilotsRegisterPage() {
 
               <div className="flex items-center justify-between pt-3 border-t border-[var(--line)] text-xs">
                 <span className="text-[11px] font-mono-data text-[var(--ink-muted)]">
-                  Performance Rating: {pilot.performanceScore || 94.2}/100
+                  Performance Score:{" "}
+                  {pilot.performanceScore !== undefined ? `${pilot.performanceScore}/100` : "not scored yet"}
                 </span>
                 <Link href={`/gov/pilots/${pilot.id}`}>
                   <Button variant="primary" size="sm">
