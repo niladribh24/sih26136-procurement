@@ -1,6 +1,6 @@
-"""PreToolUse guard: inside this repo, Claude may only write to backend/ and frontend/ (plus the
-root CLAUDE.md), never backend/.env. nlp/ and everything else in the repo stay blocked. Paths
-outside the repo (~/.claude plans, memory) are allowed."""
+"""PreToolUse guard: inside this repo, Claude may only write to backend/ and frontend/ (plus *.md
+files directly at the repo root), never backend/.env. nlp/ and everything else in the repo stay
+blocked. Paths outside the repo (~/.claude plans, memory) are allowed."""
 
 import json
 import os
@@ -31,12 +31,13 @@ if not t.startswith(norm(ROOT) + os.sep):
 if t == norm(ROOT / "backend" / ".env"):
     print(f"Blocked: {raw} holds real secrets and must not be edited by Claude. Edit it by hand.", file=sys.stderr)
     sys.exit(2)
-if t == norm(ROOT / "CLAUDE.md") or any(t.startswith(norm(d) + os.sep) for d in WRITABLE_DIRS):
+root_markdown = os.path.dirname(t) == norm(ROOT) and t.endswith(".md")  # t is already normcased
+if root_markdown or any(t.startswith(norm(d) + os.sep) for d in WRITABLE_DIRS):
     sys.exit(0)
 
 print(
     f"Blocked: {raw} is outside backend/ and frontend/. Per CLAUDE.md, Claude only writes to "
-    "backend/ and frontend/ (and the root CLAUDE.md). nlp/ belongs to another owner - ask the user first.",
+    "backend/ and frontend/ (and *.md files at the repo root). nlp/ belongs to another owner - ask the user first.",
     file=sys.stderr,
 )
 sys.exit(2)
