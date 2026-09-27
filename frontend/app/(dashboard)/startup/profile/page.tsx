@@ -223,7 +223,7 @@ export default function StartupProfilePage() {
                 { value: "₹5Cr–₹25Cr", label: "₹5 Crore – ₹25 Crore" },
                 { value: "> ₹25Cr", label: "Exceeds ₹25 Crore (Graduated)" },
               ]}
-              helperText="Startup eligibility is capped at ₹25 Cr turnover under DPIIT rules"
+              helperText="SAMARTH's eligibility check caps turnover at ₹25 Cr (DPIIT recognition itself allows up to ₹100 Cr)"
             />
 
             <Input
@@ -265,7 +265,7 @@ export default function StartupProfilePage() {
             </h2>
             <p className="text-xs text-[var(--ink-muted)] mt-1">
               Upload past technical project reports, patents, or whitepapers. Automated document analysis
-              extracts verified capabilities used for challenge matching.
+              extracts capability tags used for challenge matching.
             </p>
           </div>
 

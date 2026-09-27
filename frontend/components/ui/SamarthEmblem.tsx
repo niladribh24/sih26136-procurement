@@ -18,19 +18,19 @@ export const SamarthEmblem: React.FC<SamarthEmblemProps> = ({
       width={size}
       height={size}
       className={`shrink-0 ${className}`}
-      aria-label="SAMARTH Public Procurement Authority Emblem"
+      aria-label="SAMARTH prototype emblem"
     >
       <defs>
         <radialGradient id="compEmblemBg" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#244574" />
-          <stop offset="85%" stop-color="#1B365D" />
-          <stop offset="100%" stop-color="#122542" />
+          <stop offset="0%" stopColor="#244574" />
+          <stop offset="85%" stopColor="#1B365D" />
+          <stop offset="100%" stopColor="#122542" />
         </radialGradient>
         
         <linearGradient id="compGoldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#D48B47" />
-          <stop offset="50%" stop-color="#A25722" />
-          <stop offset="100%" stop-color="#73380F" />
+          <stop offset="0%" stopColor="#D48B47" />
+          <stop offset="50%" stopColor="#A25722" />
+          <stop offset="100%" stopColor="#73380F" />
         </linearGradient>
 
         {/* Top arc: R=43.5, clockwise for upright text across the upper arch */}
@@ -40,30 +40,30 @@ export const SamarthEmblem: React.FC<SamarthEmblemProps> = ({
       </defs>
 
       {/* Outer Solid Edge */}
-      <circle cx="60" cy="60" r="58" fill="url(#compEmblemBg)" stroke="#A25722" stroke-width="2.2" />
+      <circle cx="60" cy="60" r="58" fill="url(#compEmblemBg)" stroke="#A25722" strokeWidth="2.2" />
       
       {/* Fine Guilloche / Dashed Ring */}
-      <circle cx="60" cy="60" r="53.5" fill="none" stroke="#FAF8F3" stroke-width="0.9" stroke-dasharray="2 1.5" opacity="0.6" />
-      <circle cx="60" cy="60" r="50" fill="none" stroke="#A25722" stroke-width="0.8" opacity="0.8" />
+      <circle cx="60" cy="60" r="53.5" fill="none" stroke="#FAF8F3" strokeWidth="0.9" strokeDasharray="2 1.5" opacity="0.6" />
+      <circle cx="60" cy="60" r="50" fill="none" stroke="#A25722" strokeWidth="0.8" opacity="0.8" />
 
       {/* Circular Administrative Typography */}
-      <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="5.2" font-weight="700" fill="#FAF8F3" letter-spacing="0.65">
-        <textPath href="#compTextArcTop" startOffset="50%" text-anchor="middle">
+      <text fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" fontSize="5.2" fontWeight="700" fill="#FAF8F3" letterSpacing="0.65">
+        <textPath href="#compTextArcTop" startOffset="50%" textAnchor="middle">
           SAMARTH · PUBLIC PROCUREMENT
         </textPath>
       </text>
-      <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="4.3" font-weight="600" fill="#D9D6CB" letter-spacing="0.75">
-        <textPath href="#compTextArcBottom" startOffset="50%" text-anchor="middle">
-          ★ GOVERNMENT OF INDIA ★
+      <text fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" fontSize="4.3" fontWeight="600" fill="#D9D6CB" letterSpacing="0.75">
+        <textPath href="#compTextArcBottom" startOffset="50%" textAnchor="middle">
+          SIH 2026 · PROTOTYPE
         </textPath>
       </text>
 
       {/* Inner Center Ring */}
-      <circle cx="60" cy="60" r="37" fill="#10223B" stroke="#A25722" stroke-width="1.8" />
-      <circle cx="60" cy="60" r="34" fill="none" stroke="#FAF8F3" stroke-width="0.75" opacity="0.3" />
+      <circle cx="60" cy="60" r="37" fill="#10223B" stroke="#A25722" strokeWidth="1.8" />
+      <circle cx="60" cy="60" r="34" fill="none" stroke="#FAF8F3" strokeWidth="0.75" opacity="0.3" />
 
       {/* 16-Spoke Ashoka / Dharma Chakra */}
-      <g stroke="#A25722" stroke-width="0.8" opacity="0.75">
+      <g stroke="#A25722" strokeWidth="0.8" opacity="0.75">
         <line x1="60" y1="27" x2="60" y2="93" />
         <line x1="27" y1="60" x2="93" y2="60" />
         <line x1="36.67" y1="36.67" x2="83.33" y2="83.33" />
@@ -79,29 +79,29 @@ export const SamarthEmblem: React.FC<SamarthEmblemProps> = ({
         d="M 60,36 L 76,45 L 73,67 C 73,77 66,84 60,87 C 54,84 47,77 47,67 L 44,45 Z"
         fill="#1B365D"
         stroke="#FAF8F3"
-        stroke-width="1.4"
-        stroke-linejoin="round"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
       />
 
       {/* Upward Dynamic Chevron (Startup Innovation) */}
-      <polygon points="60,41 71,52 60,48 49,52" fill="url(#compGoldGradient)" stroke="#FAF8F3" stroke-width="0.5" />
-      <polygon points="60,50 69,59 60,56 51,59" fill="#265C42" stroke="#FAF8F3" stroke-width="0.5" />
+      <polygon points="60,41 71,52 60,48 49,52" fill="url(#compGoldGradient)" stroke="#FAF8F3" strokeWidth="0.5" />
+      <polygon points="60,50 69,59 60,56 51,59" fill="#265C42" stroke="#FAF8F3" strokeWidth="0.5" />
 
       {/* Central Star of Integrity */}
       <circle cx="60" cy="65" r="2.6" fill="#FAF8F3" />
       <circle cx="60" cy="65" r="1.3" fill="#1B365D" />
 
       {/* Base Inscription Tag inside shield */}
-      <rect x="50" y="72" width="20" height="5.5" rx="1.8" fill="#A25722" stroke="#FAF8F3" stroke-width="0.4" />
+      <rect x="50" y="72" width="20" height="5.5" rx="1.8" fill="#A25722" stroke="#FAF8F3" strokeWidth="0.4" />
       <text
         x="60"
         y="76.2"
-        font-family="'IBM Plex Mono', monospace"
-        font-size="3.5"
-        font-weight="700"
+        fontFamily="'IBM Plex Mono', monospace"
+        fontSize="3.5"
+        fontWeight="700"
         fill="#FAF8F3"
-        text-anchor="middle"
-        letter-spacing="0.4"
+        textAnchor="middle"
+        letterSpacing="0.4"
       >
         SIH26136
       </text>

@@ -260,7 +260,7 @@ const mockApi: ApiService = {
       code: `PLT-2026-${Math.floor(10 + Math.random() * 90)}`,
       startDate: new Date().toISOString().split("T")[0],
       status: "Approved", // like the backend: the officer starts it from the pilot page
-      milestones: (pilotData.milestones || []).map((m: any) => ({
+      milestones: (pilotData.milestones || []).map((m) => ({
         ...m,
         pilotId,
       })),

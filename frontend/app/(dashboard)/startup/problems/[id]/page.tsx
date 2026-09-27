@@ -41,7 +41,7 @@ export default function StartupProblemSubmissionPage() {
   const [title, setTitle] = useState("");
   const [abstract, setAbstract] = useState("");
   const [claimedTRL, setClaimedTRL] = useState<TRL>("TRL-6");
-  const [proposedCost, setProposedCost] = useState("2850000");
+  const [proposedCost, setProposedCost] = useState("");
   const [proposedDurationWeeks, setProposedDurationWeeks] = useState("8");
   // The mock only needs a name; the real backend needs the actual PDF.
   const [pdfFileName, setPdfFileName] = useState(USE_MOCK_API ? "Technical_Proposal_Dossier.pdf" : "");
@@ -50,7 +50,6 @@ export default function StartupProblemSubmissionPage() {
   const [submittedId, setSubmittedId] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
     Promise.all([api.getProblem(problemId), api.getSolutions(problemId)])
       .then(([prob, sols]) => {
         setProblem(prob);

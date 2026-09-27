@@ -32,7 +32,10 @@ export default function PostNewProblemPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    // Prefill from the session after hydration (localStorage isn't available during SSR, so
+    // lazy useState initialisers would cause a hydration mismatch). Runs once.
     const sess = getSession();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (sess?.department) setDepartment(sess.department);
     if (sess?.orgName) setMinistry(sess.orgName);
   }, []);

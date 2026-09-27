@@ -6,6 +6,7 @@ anything, so a failed call leaves the row exactly as it was: pending.
 """
 
 import logging
+import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -85,9 +86,33 @@ def pdf_text(path: Path) -> str:
     return "\n".join(parts).strip()
 
 
+# A heading label in front of the title, e.g. "Solution Proposal:" or "Project Title -".
+_TITLE_LABEL = r"(?:[A-Za-z][A-Za-z ]{0,40}[:\-–—]\s*)?"
+_BARE_HEADING = re.compile(r"^(?:solution|project|technical)?\s*proposal\s*[:\-–—]?\s*", re.IGNORECASE)
+
+
+def without_title(text: str, title: str | None) -> str:
+    """The PDF text minus its leading title heading.
+
+    /summarize is extractive and splits sentences on . ! ?, so a title line (which has no full
+    stop) gets glued onto the first real sentence and summaries start with "Solution Proposal:
+    <title> ...". Line breaks are flattened first because PDF text wraps long titles, e.g.
+    "canal-\nrotation-aware". Nothing is removed unless the heading is actually there.
+    """
+    flat = re.sub(r"\s+", " ", re.sub(r"-\n(?=\w)", "-", text)).strip()
+    if title and title.strip():
+        wanted = re.escape(re.sub(r"\s+", " ", title).strip())
+        match = re.match(rf"{_TITLE_LABEL}{wanted}\s*[.:\-–—]?\s*", flat, re.IGNORECASE)
+        if match:
+            return flat[match.end():]
+    return _BARE_HEADING.sub("", flat, count=1)
+
+
 def summary_input(solution: SolutionAbstract) -> str:
-    """Text from the solution PDF; the abstract if the PDF has too little text."""
+    """Text from the solution PDF (minus its title heading); the abstract if the PDF has too
+    little text."""
     text = pdf_text(upload_path(solution.file_path)) if solution.file_path else ""
+    text = without_title(text, solution.title) if text else ""
     if len(text) < MIN_PDF_TEXT_CHARS:
         text = (solution.abstract_text or "").strip()
         if len(text) < ML_MIN_TEXT_CHARS:

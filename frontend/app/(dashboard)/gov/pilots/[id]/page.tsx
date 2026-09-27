@@ -18,7 +18,7 @@ import { api } from "@/lib/api";
 import { getSession, subscribeSession } from "@/lib/auth";
 import { errorMessage } from "@/lib/http";
 import { Pilot, Milestone } from "@/lib/types";
-import { directSanctionEligible, lifecycleStage } from "@/lib/pilotStateMachine";
+import { directSanctionEligible, stageBadge } from "@/lib/pilotStateMachine";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -116,7 +116,7 @@ export default function GovernmentPilotTrackerPage() {
         code={pilot.code}
         title={`${pilot.startupName} — Field Pilot Tracker`}
         subtitle={`${pilot.department} · Sanction: ₹${(pilot.totalBudget / 100000).toFixed(1)}L · Duration: ${pilot.durationWeeks} Weeks`}
-        badge={<Badge variant="highlight">{lifecycleStage(pilot.status).label}</Badge>}
+        badge={<Badge variant="highlight">{stageBadge(pilot.status).label}</Badge>}
         actions={
           (allMilestonesVerified && pilot.status === "Completed" && isOfficer) || isRecommended ? (
             <Button

@@ -65,7 +65,7 @@ export const RankedSolutionCard: React.FC<RankedSolutionCardProps> = ({
             <span className="font-bold text-[var(--ink)]">
               {solution.proposedCost ? `₹${(solution.proposedCost / 100000).toFixed(1)}L` : "Budget TBD"}
             </span>
-            <span className="text-[var(--ink-muted)]"> · {solution.claimedTRL || "TRL 6"}</span>
+            <span className="text-[var(--ink-muted)]"> · {solution.claimedTRL}</span>
           </div>
         </div>
       </div>

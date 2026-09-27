@@ -2,9 +2,10 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Plus, Trash2, Rocket, AlertCircle, Clock } from "lucide-react";
+import { ShieldCheck, Rocket, AlertCircle, Clock } from "lucide-react";
 import { Solution, Problem } from "@/lib/types";
 import { api } from "@/lib/api";
+import { getSession } from "@/lib/auth";
 import { errorMessage } from "@/lib/http";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -14,6 +15,41 @@ export interface PilotSetupPanelProps {
   solution: Solution;
   problem: Problem;
   onClose: () => void;
+}
+
+/** A standard three-step plan for any problem: deploy, trial against the problem's own desired
+ * outcome, then evaluate and hand over. Due weeks scale with the chosen duration. */
+function defaultMilestones(problem: Problem, weeks: number) {
+  const w = Math.max(weeks, 1);
+  const first = Math.max(1, Math.round(w * 0.25));
+  const second = Math.max(first, Math.round(w * 0.7));
+  const outcome = problem.desiredOutcome.trim();
+  return [
+    {
+      sequence: 1,
+      title: "Deployment & baseline measurement",
+      description: "Solution deployed at the pilot site; baseline recorded for the target outcome.",
+      targetKPI: "Deployment complete and baseline data logged",
+      deliverableDueWeek: first,
+      tranchePercentage: 30,
+    },
+    {
+      sequence: 2,
+      title: "Field trial against the target outcome",
+      description: "Solution operated in the field and measured against the problem's desired outcome.",
+      targetKPI: outcome.length > 180 ? `${outcome.slice(0, 177)}...` : outcome,
+      deliverableDueWeek: second,
+      tranchePercentage: 40,
+    },
+    {
+      sequence: 3,
+      title: "Final evaluation & handover",
+      description: "Results report reviewed and the solution handed over to the department.",
+      targetKPI: "Final report accepted by the department",
+      deliverableDueWeek: w,
+      tranchePercentage: 30,
+    },
+  ];
 }
 
 export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
@@ -26,48 +62,26 @@ export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
   const [durationWeeks, setDurationWeeks] = useState(
     solution?.proposedDurationWeeks?.toString() || "8"
   );
-  const [totalBudget, setTotalBudget] = useState(
-    solution?.proposedCost?.toString() || "2850000"
-  );
+  const [totalBudget, setTotalBudget] = useState(solution?.proposedCost?.toString() || "");
   const [independentValidator, setIndependentValidator] = useState(
     "Prof. K. Rao (Aerospace, IIT Delhi)"
   );
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState("");
 
-  const [milestones, setMilestones] = useState([
-    {
-      sequence: 1,
-      title: "Bench Calibration & Optical Sensor Synchronization",
-      description: "Laboratory synchronization of sensor telemetry with edge compute board.",
-      targetKPI: "Frame-drop rate < 0.1% over 24-hr continuous run",
-      deliverableDueWeek: 2,
-      tranchePercentage: 30,
-    },
-    {
-      sequence: 2,
-      title: "Live Field Canopy Penetration Flight Tests",
-      description: "Autonomous field test flights across simulated forest testbed.",
-      targetKPI: "False-positive detection rate < 8% under canopy",
-      deliverableDueWeek: 5,
-      tranchePercentage: 40,
-    },
-    {
-      sequence: 3,
-      title: "Encrypted Mesh Telemetry & Ground Alert Handoff",
-      description: "Real-time threat alert packet relay over 5km distance without cellular coverage.",
-      targetKPI: "Alert packet latency < 1.2s at 5km range",
-      deliverableDueWeek: 8,
-      tranchePercentage: 30,
-    },
-  ]);
+  const milestones = defaultMilestones(problem, parseInt(durationWeeks, 10) || 8);
 
   const handleLaunchPilot = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLaunching(true);
     setLaunchError("");
 
-    const numericBudget = parseInt(totalBudget, 10) || 2850000;
+    const numericBudget = parseInt(totalBudget, 10);
+    if (!(numericBudget > 0)) {
+      setLaunchError("Enter the total grant budget in rupees.");
+      setIsLaunching(false);
+      return;
+    }
 
     try {
       const createdPilot = await api.createPilot({
@@ -78,11 +92,10 @@ export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
         dpiitNumber: solution.dpiitNumber,
         department: problem.department,
         ministry: problem.ministry,
-        leadOfficerName: "Dr. A. Sharma (Director, ICAR)",
+        leadOfficerName: getSession()?.name ?? "", // the backend uses the problem's officer
         independentValidatorName: independentValidator,
         durationWeeks: parseInt(durationWeeks, 10) || 8,
         totalBudget: numericBudget,
-        performanceScore: 0,
         milestones: milestones.map((m) => ({
           id: `m-${Date.now()}-${m.sequence}`,
           pilotId: "",
@@ -97,8 +110,7 @@ export const PilotSetupPanel: React.FC<PilotSetupPanelProps> = ({
         })),
       });
 
-      // Update solution status in memory and storage
-      solution.status = "shortlisted";
+      // The backend already shortlists on pilot creation; the mock needs the explicit call.
       await api.updateSolutionStatus(solution.id, "shortlisted");
       onClose();
       router.push(`/gov/pilots/${createdPilot.id}`);

@@ -86,8 +86,8 @@ export default function GovernmentScaleRepositoryPage() {
       <PageHeader
         code="STAGE-4-SCALE"
         title="Inter-Departmental Innovation Repository"
-        subtitle="Discover and directly replicate field-proven innovations validated across central and state ministries under GFR Rule 149 & Rule 194."
-        badge={<Badge variant="highlight">Stage 4: National Scale</Badge>}
+        subtitle="Procured pilots from other departments that you can request to replicate, citing the completed trial."
+        badge={<Badge variant="highlight">Stage 4: Scale</Badge>}
       />
 
       {successToast && (
@@ -122,10 +122,10 @@ export default function GovernmentScaleRepositoryPage() {
               onChange={(e) => setMinScore(Number(e.target.value))}
               className="w-full px-3 py-2 text-xs bg-[var(--surface)] border border-[var(--line)] rounded-[6px] text-[var(--ink)] font-mono-data focus:outline-none focus:border-[var(--accent)]"
             >
-              <option value={0}>All Benchmark Scores</option>
+              <option value={0}>All Performance Scores</option>
               <option value={85}>Score &ge; 85 / 100</option>
-              <option value={90}>Score &ge; 90 / 100 (Excellence)</option>
-              <option value={95}>Score &ge; 95 / 100 (Gold Class)</option>
+              <option value={90}>Score &ge; 90 / 100</option>
+              <option value={95}>Score &ge; 95 / 100</option>
             </select>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function GovernmentScaleRepositoryPage() {
 
               <div className="flex items-center justify-between pt-3 border-t border-[var(--line)] text-xs">
                 <span className="text-[11px] font-mono-data text-[var(--ink-muted)]">
-                  Statutory Rule: {item.gfrExemptionClause}
+                  Procured under: {item.gfrExemptionClause}
                 </span>
 
                 {isOfficer && (

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -40,17 +40,15 @@ export const IndependentValidationDrawer: React.FC<IndependentValidationDrawerPr
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (milestone) {
-      setError("");
-      setDecision("pass");
-      setRemarks(
-        milestone.verificationRemarks ||
-        `Technical deliverable benchmark inspected against quantitative target: "${milestone.targetKPI}". Telemetry and logs verified without deviation.`
-      );
-      setReportUrl(milestone.verificationReportUrl || `/reports/evaluation-${milestone.id}.pdf`);
-    }
-  }, [milestone?.id]);
+  // A different milestone opened: reset the form (state adjusted during render, not in an effect).
+  const [formFor, setFormFor] = useState<string | null>(null);
+  if (milestone && milestone.id !== formFor) {
+    setFormFor(milestone.id);
+    setError("");
+    setDecision("pass");
+    setRemarks(milestone.verificationRemarks || `Deliverable checked against the target KPI: "${milestone.targetKPI}".`);
+    setReportUrl(milestone.verificationReportUrl || "");
+  }
 
   if (!milestone) return null;
 
@@ -67,7 +65,7 @@ export const IndependentValidationDrawer: React.FC<IndependentValidationDrawerPr
         validatorName,
         decision === "pass" ? remarks : `[FAILED AUDIT]: ${remarks}`,
         decision === "pass" ? "verified" : "failed",
-        reportUrl
+        reportUrl.trim() || undefined
       );
       onVerified();
       onClose();
@@ -162,7 +160,7 @@ export const IndependentValidationDrawer: React.FC<IndependentValidationDrawerPr
               type="text"
               value={reportUrl}
               onChange={(e) => setReportUrl(e.target.value)}
-              placeholder="https://eval-repo.gov.in/reports/eval-2026.pdf"
+              placeholder="Optional: link to the validator&apos;s report"
               className="font-mono-data text-xs"
             />
           </div>

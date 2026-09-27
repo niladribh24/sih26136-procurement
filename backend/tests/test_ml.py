@@ -285,3 +285,42 @@ def test_retry_pending_leaves_things_pending_when_ml_still_down(client, db, prob
         StartupProfile.user_id == uuid.UUID(s["id"])
     )
     assert db.scalars(own_docs).all() == [None]
+
+
+# ---------- summary input cleanup ----------
+
+def test_without_title_strips_a_labelled_wrapped_title():
+    from app.services.ml_sync import without_title
+
+    title = "LoRaWAN soil moisture network with canal-rotation-aware advisories"
+    text = (
+        "Solution Proposal: LoRaWAN soil moisture network with canal-\nrotation-aware advisories\n"
+        "Submitted by BhoomiSense.\n1. Summary. Probes report every 30 minutes."
+    )
+    assert without_title(text, title) == "Submitted by BhoomiSense. 1. Summary. Probes report every 30 minutes."
+
+
+def test_without_title_strips_a_bare_title_or_heading_only():
+    from app.services.ml_sync import without_title
+
+    assert without_title("Crop Watch\nThe system maps stress.", "Crop Watch") == "The system maps stress."
+    assert without_title("Solution Proposal\nThe system maps stress.", "Other") == "The system maps stress."
+    # Nothing that looks like a heading: the text is only whitespace-normalised.
+    body = "The system maps crop stress from\nSentinel-2 imagery."
+    assert without_title(body, "Crop Watch") == "The system maps crop stress from Sentinel-2 imagery."
+
+
+def test_submit_sends_pdf_text_without_its_title(client, ml, problem):
+    ml.up()
+    s = signup(client)
+    form = solution_form(title="Canopy UAV")
+    client.post(
+        f"/api/problems/{problem['id']}/solutions",
+        data=form,
+        files=pdf_file(content=text_pdf("Solution Proposal: Canopy UAV " + PDF_TEXT)),
+        headers=auth(s["token"]),
+    )
+    (req,) = ml.calls("/summarize")
+    sent = json.loads(req.content)["text"]
+    assert not sent.lower().startswith("solution proposal") and not sent.startswith("Canopy UAV")
+    assert sent.startswith(PDF_TEXT.split()[0])

@@ -139,7 +139,7 @@ These decisions were made explicitly by the user and applied to `backend/schema.
       - Any govt_officer can request one, except the officer who ran the originating pilot (403). 409 if they already have an open request.
       - `PATCH /api/replications/:id/status` moves pending → approved (originating officer only) and approved → in_pilot (requesting officer only). `ApiService` gained `updateReplicationStatus`.
     - **Frontend:**
-      - The stepper and stage badge map to the real statuses (`lifecycleStage`, `directSanctionEligible` in `lib/pilotStateMachine.ts`).
+      - The stepper and stage badge map to the real statuses (`stageBadge`, `directSanctionEligible` in `lib/pilotStateMachine.ts`).
       - The "Eligible for Direct Sanction" card reflects the pilot's state.
       - The docket is a draft until Procured.
       - Claims we can't back up were reworded: the GeM gateway, "cryptographic/immutable", the fake hash and seal text, and the invented SLA terms.

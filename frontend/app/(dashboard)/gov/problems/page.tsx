@@ -16,7 +16,6 @@ export default function GovernmentProblemsPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    setLoading(true);
     api.getProblems()
       .then(setProblems)
       .catch((err: unknown) => console.error("Failed to load problems", err))

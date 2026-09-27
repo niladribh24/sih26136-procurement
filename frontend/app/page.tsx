@@ -90,7 +90,7 @@ export default function HomePage() {
         <p className="text-base sm:text-lg text-[var(--ink-secondary)] max-w-2xl mx-auto leading-relaxed mb-8">
           A compliant, auditable four-stage lifecycle transitioning DPIIT-recognized
           startups from competitive problem statements to verified pilot trials, GFR 194
-          direct sanction orders, and national scale replication.
+          direct procurement, and replication by other departments.
         </p>
 
         {/* 4-Stage Stepper Overview */}
@@ -121,7 +121,7 @@ export default function HomePage() {
             </span>
             <h2 className="text-sm font-bold text-[var(--ink)] mt-0.5">PROCURE</h2>
             <p className="text-[11px] text-[var(--ink-muted)] mt-1">
-              Direct sanction order generated under GFR 194 Startup Single Source Exemption.
+              Procurement recorded for completed pilots under GFR 2017 Rule 194.
             </p>
           </div>
 
@@ -131,7 +131,7 @@ export default function HomePage() {
             </span>
             <h2 className="text-sm font-bold text-[var(--ink)] mt-0.5">SCALE</h2>
             <p className="text-[11px] text-[var(--ink-muted)] mt-1">
-              National Verified Solutions Catalog for multi-department replication.
+              Proven solutions directory for replication by other departments.
             </p>
           </div>
         </div>
@@ -173,7 +173,7 @@ export default function HomePage() {
                 <div className="text-[11px] text-[var(--ink-muted)] pt-2 space-y-1">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[var(--positive)]" />
-                    <span>Review Ranked Shortlists (#PRB-2026-081)</span>
+                    <span>Review AI-Ranked Shortlists & Eligibility</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[var(--positive)]" />
@@ -181,7 +181,7 @@ export default function HomePage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[var(--positive)]" />
-                    <span>Issue GFR 194 Direct Sanction Orders</span>
+                    <span>Record GFR 194 Procurement Sanctions</span>
                   </div>
                 </div>
               </div>
@@ -259,15 +259,15 @@ export default function HomePage() {
                 <div className="text-[11px] text-[var(--ink-muted)] pt-2 space-y-1">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[var(--positive)]" />
-                    <span>Independent Lab & Field Validation</span>
+                    <span>Score Proposals on the Evaluation Rubric</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[var(--positive)]" />
-                    <span>Audit KPI Telemetry & Milestone Proofs</span>
+                    <span>Verify Milestone Deliverables Against KPIs</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[var(--positive)]" />
-                    <span>Execute Pass/Fail Governance Sign-Offs</span>
+                    <span>Pass/Fail Sign-Off That Releases Tranches</span>
                   </div>
                 </div>
               </div>

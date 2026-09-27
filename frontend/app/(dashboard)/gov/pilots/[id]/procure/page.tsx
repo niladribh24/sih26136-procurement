@@ -36,7 +36,7 @@ export default function GovernmentProcurePage() {
   if (loading) {
     return (
       <div className="p-12 text-center text-xs font-mono-data text-[var(--ink-muted)]">
-        Preparing official procurement sanction memorandum...
+        Preparing the sanction docket...
       </div>
     );
   }

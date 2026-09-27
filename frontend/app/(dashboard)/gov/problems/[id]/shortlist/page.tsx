@@ -155,10 +155,10 @@ export default function GovernmentRankedShortlistPage() {
           </div>
           <div>
             <div className="text-xs font-bold text-[var(--ink)]">
-              Automated Technical Evaluation & Fit Scoring Active
+              AI Match Ranking
             </div>
             <div className="text-[11px] text-[var(--ink-muted)]">
-              Proposals scored against department challenge requirements, claimed TRL, and quantitative acceptance criteria.
+              Proposals ranked by semantic similarity to this problem statement (ML service). Eligibility and rubric scores are shown per proposal.
             </div>
           </div>
         </div>

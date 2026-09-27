@@ -64,10 +64,10 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
   const [showPilotSetup, setShowPilotSetup] = useState(false);
 
   // Evaluator Rubric State
-  const [techMerit, setTechMerit] = useState(28);
-  const [costRealism, setCostRealism] = useState(18);
-  const [teamCap, setTeamCap] = useState(19);
-  const [timelineViab, setTimelineViab] = useState(27);
+  const [techMerit, setTechMerit] = useState(0);
+  const [costRealism, setCostRealism] = useState(0);
+  const [teamCap, setTeamCap] = useState(0);
+  const [timelineViab, setTimelineViab] = useState(0);
   const [savedRubric, setSavedRubric] = useState(false);
   const [rubricError, setRubricError] = useState("");
 
@@ -103,17 +103,19 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
   const eligibility = currentEligibility?.data ?? null;
   const eligibilityError = currentEligibility?.error ?? "";
 
-  useEffect(() => {
-    if (solution) {
-      setTechMerit(solution.rubricScore?.technicalMerit ?? 28);
-      setCostRealism(solution.rubricScore?.costRealism ?? 18);
-      setTeamCap(solution.rubricScore?.teamCapability ?? 19);
-      setTimelineViab(solution.rubricScore?.timelineViability ?? 27);
-      setShowPilotSetup(false);
-      setSavedRubric(false);
-      setRubricError("");
-    }
-  }, [solution?.id]);
+  // A different solution opened: reset the rubric form (state adjusted during render, not in an
+  // effect). Unscored solutions start at 0 rather than a made-up suggested score.
+  const [formFor, setFormFor] = useState<string | null>(null);
+  if (solution && solution.id !== formFor) {
+    setFormFor(solution.id);
+    setTechMerit(solution.rubricScore?.technicalMerit ?? 0);
+    setCostRealism(solution.rubricScore?.costRealism ?? 0);
+    setTeamCap(solution.rubricScore?.teamCapability ?? 0);
+    setTimelineViab(solution.rubricScore?.timelineViability ?? 0);
+    setShowPilotSetup(false);
+    setSavedRubric(false);
+    setRubricError("");
+  }
 
   if (!solution) return null;
 
@@ -261,7 +263,7 @@ export const SolutionInspectorDrawer: React.FC<SolutionInspectorDrawerProps> = (
         <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line)] rounded-[8px] space-y-2">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-xs font-mono-data uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
-              Automated Statutory Eligibility (GFR Rule 149)
+              Automated Eligibility Checks
             </h3>
             {eligibility && (
               <Badge variant={ELIGIBILITY_BADGE[eligibility.status]}>

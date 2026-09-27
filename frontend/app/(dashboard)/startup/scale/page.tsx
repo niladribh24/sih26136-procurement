@@ -41,7 +41,7 @@ export default function StartupScaleShowcasePage() {
     <div className="space-y-6 max-w-5xl">
       <PageHeader
         code="STAGE-4-SCALE"
-        title="National Validated Innovations Directory"
+        title="Proven Solutions Directory"
         subtitle="Explore startup solutions that have completed pilots, achieved public validation, and scaled across ministries."
       />
 

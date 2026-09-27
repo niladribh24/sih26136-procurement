@@ -48,24 +48,18 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot, c
 
   return (
     <div className="space-y-6">
-      {/* Sovereign Sanction Order Dossier */}
+      {/* Sanction docket (a prototype document, not an official government order) */}
       <div className="p-8 bg-white border border-[var(--line-strong)] rounded-[4px] shadow-sm space-y-8 print:border-none print:shadow-none print:p-0 font-editorial">
-        {/* Header Letterhead */}
+        {/* Header */}
         <div className="text-center border-b-2 border-[var(--ink)] pb-6 space-y-2">
-          {/* Official Verification Seal */}
-          <img
-            src="/samarth-seal-verified.svg"
-            alt="Government of India Public Procurement Verification Seal"
-            className="w-20 h-20 mx-auto mb-2"
-          />
           <div className="text-xs font-mono-data tracking-widest uppercase text-[var(--ink-muted)]">
-            Government of India · Public Procurement Authority
+            SAMARTH prototype · SIH 2026 (SIH26136)
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--ink)] uppercase">
-            Official Innovation Sanction Memorandum
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--ink)]">
+            Innovation Procurement Sanction Docket
           </h1>
           <div className="text-xs font-mono-data text-[var(--ink-secondary)]">
-            Under General Financial Rules (GFR 2017) Rule 149 & Rule 194 · Startup Innovation Direct Procurement
+            Prepared under GFR 2017 Rule 194 (startup innovation procurement)
           </div>
           <div className="flex justify-between items-center pt-3 text-xs font-mono-data text-[var(--ink-muted)] border-t border-[var(--line)]">
             <span>Sanction Order Ref: <strong>{sanctionOrderRef}</strong></span>
@@ -188,14 +182,14 @@ export const SanctionDocketView: React.FC<SanctionDocketViewProps> = ({ pilot, c
         {/* Section 3: Statutory Exemptions */}
         <div className="space-y-2 text-xs font-sans">
           <h2 className="text-xs font-mono-data uppercase tracking-wider text-[var(--ink-muted)] font-bold border-b border-[var(--line)] pb-1">
-            3. Statutory Exemptions & Public Compliance Seals
+            3. Basis for Direct Procurement
           </h2>
           <div className="space-y-2 pt-1">
             <div className="flex items-start gap-2 p-2.5 rounded bg-[var(--surface)] border border-[var(--line)]">
               <CheckCircle2 className="w-4 h-4 text-[var(--positive)] shrink-0 mt-0.5" />
               <div>
                 <strong className="text-[var(--ink)]">
-                  GFR 2017 Rule 149 & Rule 194 Special Exemption for Field-Validated Innovations:
+                  GFR 2017 Rule 194, field-validated innovation:
                 </strong>
                 <p className="text-[11px] text-[var(--ink-secondary)] mt-0.5 leading-relaxed">
                   The subject innovation completed a government pilot trial whose milestones were each verified by an independent validator, the basis for direct procurement without a prior tender notification.

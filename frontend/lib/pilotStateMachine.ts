@@ -25,7 +25,7 @@ export function canTransition(current: PilotStatus, target: PilotStatus): boolea
 }
 
 /** Which of the four lifecycle stages (Identify → Pilot → Procure → Scale) a pilot is in. */
-export function lifecycleStage(status: PilotStatus): { number: 2 | 3 | 4; label: string } {
+export function stageBadge(status: PilotStatus): { number: 2 | 3 | 4; label: string } {
   switch (status) {
     case "Completed":
     case "Recommended for procurement":

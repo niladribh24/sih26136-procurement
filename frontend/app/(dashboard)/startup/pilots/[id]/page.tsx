@@ -210,7 +210,7 @@ export default function StartupPilotDetailPage() {
                 </div>
                 <p className="mt-1 text-[11px] leading-relaxed">{milestone.verificationRemarks}</p>
                 <div className="text-[10px] uppercase font-mono-data font-semibold mt-1">
-                  Action Required: Rectify benchmark telemetry and re-upload deliverable.
+                  Action required: address the remarks and resubmit the deliverable.
                 </div>
               </div>
             )}

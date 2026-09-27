@@ -19,7 +19,6 @@ export default function StartupProposalsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
     api.getSolutions()
       .then((all: Solution[]) => {
         const active = getSession();
